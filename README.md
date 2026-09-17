@@ -23,4 +23,4 @@ A migração `supabase/migrations/20260915161027_pente_fino_pdf_integrity.sql` j
 
 ## Estado da entrega
 
-Ver `docs/VALIDACAO.md`. Repositório: cauacassarolli-hub/CHECKLIST. Integração e validação do deploy em andamento.
+Publicado em https://cauacassarolli-hub.github.io/CHECKLIST/ pela branch `main` de `cauacassarolli-hub/CHECKLIST`. Consulte `docs/VALIDACAO.md` para evidências e testes pendentes; a validação física em iPhone ainda é necessária. Os PDFs incorporam imagens e fontes DejaVu (licença em `public/fonts/LICENSE.txt`).

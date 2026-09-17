@@ -1,12 +1,25 @@
-import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import fontkit from '@pdf-lib/fontkit';
+import { PDFDocument, rgb } from 'pdf-lib';
 import { APT_STATUS, ITEM_STATUS, dateTime, apartmentStatus } from './domain.js';
 
-// Standard PDF fonts include Portuguese accents. Normalize unsupported symbols
+// Embedded fonts preserve the same spacing and Portuguese accents in every reader.
+// Normalize unsupported symbols
 // without dropping the rest of the user's note or preventing PDF generation.
 const printable = text => String(text??'').normalize('NFC').replace(/[\u2010-\u2015]/g,'-').replace(/\u2026/g,'...').replace(/[^\x09\x0a\x0d\x20-\x7e\xa0-\xff\u20ac\u2018\u2019\u201c\u201d\u2022]/gu,'?');
-export async function generatePdf(model,loadPhoto,progress=()=>{}) {
+let cachedFonts;
+export async function loadPdfFonts() {
+  if(!cachedFonts)cachedFonts=Promise.all(['DejaVuSans.ttf','DejaVuSans-Bold.ttf'].map(async name=>{
+    const response=await fetch(new URL('./fonts/'+name,document.baseURI));
+    if(!response.ok)throw new Error('Não foi possível carregar a fonte do relatório. Tente novamente.');
+    return new Uint8Array(await response.arrayBuffer());
+  })).catch(e=>{cachedFonts=null;throw e;});
+  return cachedFonts;
+}
+export async function generatePdf(model,loadPhoto,progress=()=>{},fontBytes) {
   const doc=await PDFDocument.create();
-  const normal=await doc.embedFont(StandardFonts.Helvetica), bold=await doc.embedFont(StandardFonts.HelveticaBold);
+  doc.registerFontkit(fontkit);
+  const [regularBytes,boldBytes]=fontBytes||await loadPdfFonts();
+  const normal=await doc.embedFont(regularBytes,{subset:true}), bold=await doc.embedFont(boldBytes,{subset:true});
   const red=rgb(.55,.09,.12), ink=rgb(.12,.14,.17), muted=rgb(.38,.41,.45), pale=rgb(.96,.96,.97);
   const W=595.28,H=841.89,M=40,C=W-M*2;
   let page,y;

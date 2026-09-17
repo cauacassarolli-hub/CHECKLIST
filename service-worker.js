@@ -1,5 +1,5 @@
-const CACHE='pente-fino-05e58d60f8a7';
-const SHELL=["./","./index.html","./assets/app-IP3XLO3S.js","./assets/app-RC5EI2BA.css","./icons/icon-192.png","./icons/icon-512.png","./manifest.webmanifest"];
+const CACHE='pente-fino-c87c5be3ea0e';
+const SHELL=["./","./index.html","./assets/app-2FZRRYGL.js","./assets/app-RC5EI2BA.css","./icons/icon-192.png","./icons/icon-512.png","./manifest.webmanifest"];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL))));
 // A new worker activates only after the previous app windows close. That avoids
 // interrupting a photo draft and mixing JavaScript versions during an upload.
