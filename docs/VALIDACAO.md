@@ -9,8 +9,8 @@
 - Contagens reais preservadas: 2 obras, 213 apartamentos, 3 itens, 1 relatório e 2 contas Auth. Nenhum convite ou membro real criado. Não foi disparado nenhum e-mail real.
 - O endpoint implantado rejeita chamadas sem token ou com token inválido. A verificação de identidade fica no corpo da função (`getUser`), mesmo com a verificação de gateway desativada. Chave administrativa exclusivamente no ambiente do servidor.
 - Security Advisor mantém somente os avisos preexistentes, com os links de correção documentados abaixo.
-- Ainda pendentes: publicação do frontend, confirmação de URLs permitidas e configuração de e-mail no painel Auth, convite real a destinatário autorizado e teste em duas sessões/dispositivos. A conexão disponível não oferece ferramenta para inspecionar/editar essas configurações Auth. Não presumir que SMTP ou redirecionamentos já estejam corretos.
-- A publicação GitHub permanece aguardando autorização explícita após a rejeição anterior da revisão automática. Os testes físicos de iPhone listados abaixo continuam pendentes.
+- Ainda pendentes: confirmação de URLs permitidas e configuração de e-mail no painel Auth, convite real a destinatário autorizado e teste em duas sessões/dispositivos. A conexão disponível não oferece ferramenta para inspecionar/editar essas configurações Auth. Não presumir que SMTP ou redirecionamentos já estejam corretos.
+- Publicação autorizada explicitamente e concluída em 24/09/2026, commit `e0845c3912a6e2f587b3da58a2e8dadd5e4ea045`. CI `35998189788` e Pages `35998188704` aprovados. Navegador confirmou o novo bundle e a rejeição de callback sem token. Painel Supabase bloqueado por login, sem alterações de configuração Auth. Os testes físicos de iPhone listados abaixo continuam pendentes.
 
 
 ## Atualização 2026-09-23 — versão 1.2.0, equipes por obra

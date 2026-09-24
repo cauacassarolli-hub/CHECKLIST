@@ -1,6 +1,6 @@
 # Entrega 1.3.0 — equipes e convite individual
 
-O pacote contém o código completo e o build na raiz, para revisão e aplicação sobre o repositório CHECKLIST. Inclui as melhorias 1.1.0 e 1.2.0 que ainda não chegaram à branch pública. As migrações e a função abaixo já foram aplicadas no Supabase conectado; não executá-las novamente nesse projeto.
+O pacote contém o código completo e o build na raiz, para revisão e aplicação sobre o repositório CHECKLIST. Inclui as melhorias 1.1.0 e 1.2.0. A versão 1.3.0 foi publicada em 24/09/2026, após autorização explícita. As migrações e a função abaixo já foram aplicadas no Supabase conectado; não executá-las novamente nesse projeto.
 
 ## Estado do servidor
 
@@ -36,8 +36,12 @@ Todos os participantes ativos consultam os registros e arquivos da obra. Podem c
 - `npm run build` — build completo com chave publicável.
 - `tests/invites.sql` — também aprovado no Supabase conectado, sem persistir fixtures.
 
-O teste real de envio de e-mail, a publicação e os testes físicos de iPhone não foram concluídos. Não confundir testes simulados de provedor/DOM com uma sessão real no Safari.
+O teste real de envio de e-mail e os testes físicos de iPhone não foram concluídos. Não confundir testes simulados de provedor/DOM com uma sessão real no Safari.
 
-## Publicação pendente
+## Publicação concluída em 24/09/2026
 
-O envio anterior ao repositório público foi rejeitado pela revisão automática de autorização. Nenhuma tentativa de contornar o bloqueio foi feita. É necessária autorização explícita para publicar o código em `cauacassarolli-hub/CHECKLIST`. O pacote pode ser repassado para revisão manual.
+- Commit remoto: `e0845c3912a6e2f587b3da58a2e8dadd5e4ea045`.
+- Testes/build: execução `35998189788`, sucesso; Pages: `35998188704`, sucesso.
+- Árvore remota idêntica à revisão local validada: `3a363e9a35af87206413ecec6bb7e6048b958723`.
+- Aplicativo público aberto no navegador com o bundle `app-V2A7V3TH.js` e recuperação de senha visível. `auth.html` responde e rejeita corretamente a abertura sem token.
+- O painel Supabase exige login; URLs de retorno, SMTP e template ainda não foram conferidos. Nenhum convite real enviado.
