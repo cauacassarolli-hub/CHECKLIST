@@ -1,5 +1,57 @@
 # Validação do aplicativo
 
+## Atualização 2026-09-24 — versão 1.3.0, convite por Supabase Auth
+
+- Modelo de permissões aprovado pelo usuário antes deste complemento. Preservada a migração de equipe e os registros anteriores.
+- Migração `pente_fino_convites_auth` aplicada no projeto conectado, versão remota `20260924095701`; Edge Function `convidar-colega` implantada, versão 1.
+- 47/47 testes automatizados e build aprovados. Incluem callback de convite/recuperação, URL sem tokens após consumo, link expirado, proteção contra sessão anterior, senha inválida, remetente sem sessão, solicitante sem propriedade, falha do provedor, conta existente, cancelamento durante envio e origem não autorizada.
+- Roteiros PostgreSQL locais aprovados, incluindo regressões de equipe e customização. `tests/invites.sql` também aprovado no Supabase real: preparação restrita ao proprietário, intervalo de reenvio, confirmação restrita ao servidor, falha sem ativação, tentativa obsoleta rejeitada, aceite idempotente e cancelamento durante envio. Fixtures totalmente revertidas.
+- Contagens reais preservadas: 2 obras, 213 apartamentos, 3 itens, 1 relatório e 2 contas Auth. Nenhum convite ou membro real criado. Não foi disparado nenhum e-mail real.
+- O endpoint implantado rejeita chamadas sem token ou com token inválido. A verificação de identidade fica no corpo da função (`getUser`), mesmo com a verificação de gateway desativada. Chave administrativa exclusivamente no ambiente do servidor.
+- Security Advisor mantém somente os avisos preexistentes, com os links de correção documentados abaixo.
+- Ainda pendentes: publicação do frontend, confirmação de URLs permitidas e configuração de e-mail no painel Auth, convite real a destinatário autorizado e teste em duas sessões/dispositivos. A conexão disponível não oferece ferramenta para inspecionar/editar essas configurações Auth. Não presumir que SMTP ou redirecionamentos já estejam corretos.
+- A publicação GitHub permanece aguardando autorização explícita após a rejeição anterior da revisão automática. Os testes físicos de iPhone listados abaixo continuam pendentes.
+
+
+## Atualização 2026-09-23 — versão 1.2.0, equipes por obra
+
+- Implementação sobre o código 1.1.0 revisado, preservando câmera nativa, rascunhos, cadastros manuais, prioridades históricas, prazos, progresso e PDFs.
+- Migração de equipe gerada pela CLI Supabase em `20260923103621_pente_fino_equipes.sql` e aplicada no projeto conectado `arhjpncxmwunlnulpbhu`, registrada como `20260923105248_pente_fino_equipes`.
+- Comparação por hash de todas as colunas anteriores: as sete tabelas preexistentes permaneceram idênticas. Contagens mantidas: 2 obras, 213 apartamentos, 5 ambientes, 1 serviço, 3 registros, 1 relatório e 0 prioridades.
+- As três novas tabelas (`chk_membros_obra`, `chk_convites_obra`, `chk_atividades`) ficaram vazias. Permanecem 2 contas reais no Auth. Nenhuma conta, autorização ou registro de teste ficou gravado.
+- `npm test`: 36/36 testes aprovados, incluindo lista de colegas sem filtro por autor, preservação de autoria, comparação de revisão, conflito de edição, resposta perdida, revisão ausente em rascunho antigo, permissões da interface, atualização ao retornar à janela, preservação de formulário aberto e recuperação de rascunho offline. Testes de interface usam DOM simulado; não substituem Safari/iOS.
+- `npm run test:rls`: PostgreSQL local via PGlite, com esquema-base inspecionado e substitutos mínimos de Auth/Storage. Executa as regras reais de RLS, funções e triggers, a migração aditiva e os roteiros SQL de equipe e customização.
+- `tests/teams.sql`: aprovado também no Supabase conectado, em uma única transação com rollback. Verifica proprietário, colega, pessoa externa e conta sem e-mail confirmado; normalização de e-mail; rejeição de claim de e-mail falsificado; aceite idempotente; compartilhamento nos dois sentidos; fotos/PDFs privados por obra; bloqueio de mudança de autoria; histórico; revisão; permissões de cadastro/exclusão; isolamento entre obras; revogação sem esperar expirar a sessão; rejeição anônima. As contas sintéticas existem somente durante a transação e não possuem login configurado.
+- A proteção nativa de Storage bloqueou a tentativa de DELETE SQL no primeiro ensaio e a transação foi revertida. O teste aceita esse bloqueio adicional sem desativá-lo. A aplicação usa a API de Storage. O roteiro SQL verifica permissões/metadados, não upload e download reais por duas sessões Auth.
+- Build aprovado, somente configuração publicável. Dez tabelas com RLS; `checklist-fotos` e `checklist-relatorios` privados. O Security Advisor não acrescentou avisos relativos à funcionalidade de equipe. Permanecem os avisos preexistentes de [execução anônima de rls_auto_enable](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable), [execução autenticada dessa função](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) e [proteção de senhas vazadas](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+- O frontend 1.2.0 está preparado localmente; a branch pública ainda está em `116f64e3eed6705d54d422a05cdd5f62fa1e06f3`. A rejeição anterior da revisão automática de autorização para publicar não foi contornada. O banco está preparado, mas a nova tela de equipe só aparece depois de publicar o pacote.
+
+### Aceitação ainda necessária após publicação
+
+1. Com duas contas reais, autorizar o e-mail do colega; entrar com a conta confirmada; selecionar a mesma obra; registrar e corrigir em ambos os sentidos.
+2. Confirmar fotos e PDFs de outro autor usando download real, atualizar em outro aparelho e testar remoção do acesso. Não compartilhar senhas.
+3. Validar o conjunto físico no iPhone: câmera no Safari e PWA, HEIC, interrupção de rede e rascunho, compartilhamento nativo de PDF, teclado e área segura. Esses testes não foram simulados como se fossem físicos.
+
+
+## Atualização 2026-09-18 — versão 1.1.0
+
+- Base: ZIP `CHECKLIST-atualizado.zip`; repositório remoto estava em `116f64e3eed6705d54d422a05cdd5f62fa1e06f3`.
+- Migração `pente_fino_customizacao` aplicada em produção com sucesso e registrada como `20260918101515`.
+- Comparação dos dados antes/depois: conteúdo das seis tabelas preexistentes preservado, descontadas somente as novas colunas `ativo`/`prazo`; 2 obras, 213 apartamentos, 5 ambientes, 1 serviço, 3 registros, 1 relatório. A tabela de prioridades foi criada vazia.
+- Teste real `tests/customization.sql`: CRUD, ausência de seeds, prazos, inativação/reativação, preservação de histórico, bloqueio de falsa aprovação, proteção de propriedade e isolamento RLS nas sete tabelas e Storage. Transação totalmente revertida.
+- Correções adicionais: editar registro com todos os cadastros inativos; filtrar relatórios por serviço inativo; preservar prioridades históricas; deixar prioridade opcional sem preenchimento forçado; proteger renomeação de prioridade em uso; mostrar progresso na tela do apartamento; distinguir ausência de registros de percentual de liberação.
+- 26/26 testes automatizados aprovados. Build validado com chave publicável. Quatro PDFs gerados em testes com imagens e fontes incorporadas; páginas de resumo e antes/depois do PDF de finalização renderizadas e conferidas visualmente.
+- Sete tabelas com RLS, dois buckets privados. O Security Advisor não apontou problemas nas novas tabelas/políticas; permanecem avisos globais preexistentes de `rls_auto_enable()` ([permissões da função](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable)) e [proteção de senha vazada](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection), fora desta migração.
+- O navegador remoto abriu a versão publicada, sem erro do aplicativo no console, mas a sessão exige autenticação. A navegação para o servidor local de teste foi bloqueada pela política do navegador (`ERR_BLOCKED_BY_CLIENT`); nenhum contorno foi tentado.
+- Em 23/09/2026, a revisão automática de autorização bloqueou a criação da árvore Git no repositório público por considerar insuficiente a autorização de publicação. Nenhum commit remoto foi criado e a branch `main` permaneceu em `116f64e3eed6705d54d422a05cdd5f62fa1e06f3`. A revisão 1.1.0 está pronta localmente; deploy e testes autenticados desta versão permanecem pendentes de autorização explícita. A câmera física permanece pendente.
+
+## Atualização 2026-09-17 — bug de câmera relatado no iPhone real
+
+O usuário testou no Safari e no PWA (Adicionar à Tela de Início): tocar em "Tirar foto" não fazia nada em nenhum dos dois. Hipótese de incompatibilidade: o modal usava `<dialog>` nativo (`showModal()`). A causa exata não foi comprovada em WebKit físico. Corrigido substituindo o `<dialog>` por um modal em `<div>` posicionado (com backdrop, trap de foco e Esc). **Este é o primeiro teste físico real de câmera no iPhone; o resultado anterior "não emulado" neste documento foi substituído por este achado.** A correção ainda precisa ser reconfirmada no iPhone físico antes de ser considerada validada.
+
+Também foram adicionadas customizações (prioridades cadastráveis, ativar/inativar ambientes-serviços-prioridades, prazo de conclusão por registro, barra de progresso). Migração aditiva correspondente: `20260917234213_pente_fino_customizacao.sql`, **aplicada em 18/09/2026** ao projeto Supabase, antes da publicação desta revisão, sob a versão remota `20260918101515`.
+
+
 Site: https://cauacassarolli-hub.github.io/CHECKLIST/
 
 Repositório: `cauacassarolli-hub/CHECKLIST`, branch publicada `main`.
@@ -21,7 +73,7 @@ Repositório: `cauacassarolli-hub/CHECKLIST`, branch publicada `main`.
 
 ## Supabase e preservação
 
-Migração executada: `pente_fino_pdf_integrity`, arquivo `supabase/migrations/20260915161027_pente_fino_pdf_integrity.sql`. Inclui metadados de PDF, bucket privado de relatórios, políticas por usuário, índices e proteções de integridade/status. Nenhuma migração adicional foi necessária nesta revisão.
+Migração executada: `pente_fino_pdf_integrity`, arquivo `supabase/migrations/20260915161027_pente_fino_pdf_integrity.sql`. Inclui metadados de PDF, bucket privado de relatórios, políticas por usuário, índices e proteções de integridade/status. A migração adicional de customização está documentada na atualização de 18/09/2026 abaixo.
 
 Contagens originais preservadas durante a migração: 1 obra, 210 apartamentos, 4 ambientes, 0 serviços, 1 item, 0 relatórios. A obra QA e seus dados foram criados manualmente depois, exclusivamente para validação, e permanecem identificados para os testes restantes.
 

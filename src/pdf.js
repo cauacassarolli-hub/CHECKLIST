@@ -1,6 +1,6 @@
 import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, rgb } from 'pdf-lib';
-import { APT_STATUS, ITEM_STATUS, dateTime, apartmentStatus } from './domain.js';
+import { APT_STATUS, ITEM_STATUS, dateTime, apartmentStatus, isOverdue } from './domain.js';
 
 // Embedded fonts preserve the same spacing and Portuguese accents in every reader.
 // Normalize unsupported symbols
@@ -53,7 +53,7 @@ export async function generatePdf(model,loadPhoto,progress=()=>{},fontBytes) {
   addPage();text(model.titulo,18,bold,red);y-=10;
   text(`${model.summary.total} apartamentos  |  ${model.summary.approved} conformes/finalizados`,11,bold);
   text(`${model.items.length} registros neste relatório  |  ${model.summary.pendingItems} pendências no pavimento/filtro de apartamentos`);
-  if(model.tipo==='finalizacao') {y-=8;text(model.summary.conclusion,12,bold,model.summary.notApproved?red:ink);}
+  if(model.tipo==='finalizacao') {y-=8;text(model.summary.correctionTotal?`Progresso das correções: ${model.summary.correctionPercent}%`:'Sem registros para medir correções.',11,bold);text(model.summary.conclusion,12,bold,model.summary.notApproved?red:ink);}
   if(model.filters.status)text('Status filtrado: '+(ITEM_STATUS[model.filters.status]||model.filters.status));
   if(model.filters.responsavel)text('Responsável filtrado: '+model.filters.responsavel);
   y-=8;text('Situação dos apartamentos',12,bold);
@@ -69,10 +69,13 @@ export async function generatePdf(model,loadPhoto,progress=()=>{},fontBytes) {
       progress(`Preparando registro ${++count} de ${model.items.length}…`);
       addPage(`${apt.pavimento} · Apartamento ${apt.apartamento}`);
       text(`${item.ambiente} / ${item.servico}`,15,bold);
-      text(`Status: ${ITEM_STATUS[item.status]||item.status} · Prioridade: ${item.prioridade||'normal'}`,11,bold);
+      text(`Status: ${ITEM_STATUS[item.status]||item.status} · Prioridade: ${item.prioridade||'Não informada'}`,11,bold);
       text(`Responsável: ${item.responsavel||'Não informado'}`);
+      if(item.criado_por_nome)text('Registrado por: '+item.criado_por_nome,9,normal,muted);
+      if(item.atualizado_por_nome)text('Última alteração por: '+item.atualizado_por_nome,9,normal,muted);
       text(`Vistoria: ${dateTime(item.data_vistoria||item.created_at)} · Atualização: ${dateTime(item.updated_at)}`,9,normal,muted);
       if(item.data_correcao)text('Correção: '+dateTime(item.data_correcao),9,normal,muted);
+      if(item.prazo){const overdue=isOverdue(item);text((overdue?'Prazo (atrasado): ':'Prazo: ')+new Date(item.prazo+'T00:00:00').toLocaleDateString('pt-BR'),9,normal,overdue?red:muted);}
       text(item.observacao||'Sem observação.');y-=12;
       if(y<350)addPage(`${apt.pavimento} · Apto ${apt.apartamento} · Fotos`);
       const boxW=(C-14)/2,boxH=Math.min(310,y-75),top=y;

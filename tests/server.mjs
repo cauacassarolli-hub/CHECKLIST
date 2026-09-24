@@ -2,7 +2,7 @@
 import http from 'node:http';import fs from 'node:fs/promises';import path from 'node:path';import crypto from 'node:crypto';
 const base=path.resolve('test-results/harness');
 const user={id:'11111111-1111-4111-8111-111111111111',email:'qa@example.invalid',aud:'authenticated',role:'authenticated'};
-const tables=Object.fromEntries(['obras','apartamentos','ambientes','servicos','itens','relatorios'].map(t=>['chk_'+t,[]]));
+const tables=Object.fromEntries(['obras','apartamentos','ambientes','servicos','prioridades','itens','relatorios'].map(t=>['chk_'+t,[]]));
 const objects=new Map();let failUpload=false;
 const jwt=()=>[Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url'),Buffer.from(JSON.stringify({sub:user.id,aud:'authenticated',role:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url'),'local-only'].join('.');
 const response=(res,status,data,headers={})=>{res.writeHead(status,{'content-type':'application/json','cache-control':'no-store',...headers});res.end(JSON.stringify(data));};

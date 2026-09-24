@@ -6,6 +6,7 @@ self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(c
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('pente-fino-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
   const url=new URL(event.request.url),scope=new URL(self.registration.scope);
+  if(url.search||url.pathname.endsWith('/auth.html'))return;
   if(event.request.method!=='GET'||url.origin!==scope.origin||!url.pathname.startsWith(scope.pathname))return;
   // Only explicitly listed public shell files are cached. Auth, API, photos,
   // signed URLs, reports and config never enter this cache.
