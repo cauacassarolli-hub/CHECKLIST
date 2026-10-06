@@ -39,4 +39,6 @@ test('draftRow exige titulo e persiste origem da ocorrencia', () => {
   assert.equal(row.titulo,'Falha de pintura');
   assert.equal(row.origem,'manual');
   assert.throws(()=>draftRow({...base,titulo:'   '},'u1'),/título da ocorrência/i);
+  const legacy=draftRow({...base,existing:true,titulo:undefined},'u1');
+  assert.equal(legacy.titulo,null);
 });
