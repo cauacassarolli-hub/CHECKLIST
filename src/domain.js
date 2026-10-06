@@ -62,9 +62,9 @@ export function validatePublicConfig(config) {
 }
 export function draftRow(draft, userId) {
   if (!draft.ambiente || !draft.servico) throw new Error('Escolha o ambiente e o serviço.');
-  if (!draft.titulo?.trim()) throw new Error('Informe o título da ocorrência.');
+  if (!draft.existing && !draft.titulo?.trim()) throw new Error('Informe o título da ocorrência.');
   if (!ITEM_STATUS[draft.status]) throw new Error('Escolha um status válido.');
-  return {id:draft.id,user_id:userId,obra_id:draft.obra_id,apartamento_id:draft.apartamento_id,ambiente:draft.ambiente,servico:draft.servico,titulo:draft.titulo.trim(),origem:draft.origem||'manual',status:draft.status,responsavel:draft.responsavel?.trim()||null,prioridade:draft.prioridade?.trim()||null,observacao:draft.observacao?.trim()||null,prazo:draft.prazo||null,foto_antes_path:draft.foto_antes_path||null,foto_depois_path:draft.foto_depois_path||null,data_correcao:['corrigido','conforme'].includes(draft.status) ? draft.data_correcao||new Date().toISOString() : null,updated_at:new Date().toISOString()};
+  return {id:draft.id,user_id:userId,obra_id:draft.obra_id,apartamento_id:draft.apartamento_id,ambiente:draft.ambiente,servico:draft.servico,titulo:draft.titulo?.trim()||null,origem:draft.origem||'manual',status:draft.status,responsavel:draft.responsavel?.trim()||null,prioridade:draft.prioridade?.trim()||null,observacao:draft.observacao?.trim()||null,prazo:draft.prazo||null,foto_antes_path:draft.foto_antes_path||null,foto_depois_path:draft.foto_depois_path||null,data_correcao:['corrigido','conforme'].includes(draft.status) ? draft.data_correcao||new Date().toISOString() : null,updated_at:new Date().toISOString()};
 }
 // Progress is measured by corrected/conforme records, not by apartment count:
 // an apartment with 3 problems and 1 fixed is not "33% approved", it is "33% corrected".
