@@ -31,3 +31,12 @@ test('Legacy priorities survive catalog customization without becoming new defau
   assert.deepEqual(recordOptions(d,{prioridade:'alta'}).prioridades,[['Emergência','Emergência'],['alta','alta (histórico)']]);
   assert.deepEqual(recordOptions(d).prioridades,[['Emergência','Emergência']]);
 });
+
+
+test('draftRow exige titulo e persiste origem da ocorrencia', () => {
+  const base={id:'i1',obra_id:'o1',apartamento_id:'a1',ambiente:'Sala',servico:'Pintura',status:'pendente',titulo:'  Falha de pintura  ',origem:'manual'};
+  const row=draftRow(base,'u1');
+  assert.equal(row.titulo,'Falha de pintura');
+  assert.equal(row.origem,'manual');
+  assert.throws(()=>draftRow({...base,titulo:'   '},'u1'),/título da ocorrência/i);
+});
