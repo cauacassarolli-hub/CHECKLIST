@@ -154,7 +154,7 @@ export function interpretAgentQuestion(data,question=''){
   const raw=String(question??'').trim();
   if(!raw)throw new Error('Digite uma pergunta para o Fiscal.');
   const text=normalizeAgentText(raw);
-  if(/\b(criar|cadast(?:rar|re)|registr(?:ar|e)|alter(?:ar|e)|editar|excluir|apagar|deletar|remover|enviar|mandar|aprovar|resolver|corrigir|finalizar)\b/.test(text))
+  if(/\b(cri(?:ar|e|a)|cadastr\w*|registr\w*|alter\w*|edit\w*|exclu\w*|apag\w*|delet\w*|remov\w*|envi\w*|mand\w*|aprov\w*|resolv\w*|corrij\w*|corrig\w*|finaliz\w*)\b/.test(text))
     throw new Error('O Fiscal está em modo somente leitura. Esta solicitação tenta alterar dados.');
 
   const filtros={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};
