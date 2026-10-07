@@ -8,6 +8,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function setup(userId='owner') {
   const {window,document}=parseHTML('<html><body><div id="app"></div></body></html>');
   globalThis.window=window;globalThis.document=document;
+  globalThis.FormData=class TestFormData { constructor(form){this.entries=[];for(const el of form?.querySelectorAll?.('[name]')||[]){if(el.disabled||!el.name)continue;const option=el.tagName==='SELECT'?el.querySelector('option[selected]')||el.querySelector('option'):null;this.entries.push([el.name,option?option.getAttribute('value')||'':el.getAttribute('value')||el.textContent||'']);}} [Symbol.iterator](){return this.entries[Symbol.iterator]();} };
   Object.defineProperty(globalThis,'navigator',{value:{onLine:true},configurable:true});
   Object.defineProperty(document,'visibilityState',{value:'visible'});
   window.scrollTo=()=>{};
