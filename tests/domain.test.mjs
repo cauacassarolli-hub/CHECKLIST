@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow,filterOccurrences,occurrenceSummary} from '../src/domain.js';
+import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow,filterOccurrences,occurrenceSummary,validateOccurrenceQuery,queryOccurrences} from '../src/domain.js';
 const data=()=>({obra:{id:'w',nome:'Obra QA'},apartamentos:[{id:'a',pavimento:'13',apartamento:'1301',status:'conforme'},{id:'b',pavimento:'13',apartamento:'1302',status:'nao_iniciado'}],ambientes:[],servicos:[{nome:'Pintura'}],itens:[]});
 test('An unvisited floor is never released just because there are no records',()=>{const m=buildReportModel(data(),{tipo:'finalizacao',pavimento:'13'});assert.equal(m.summary.notApproved,1);assert.match(m.summary.conclusion,/não liberado/);});
 test('Conforme without records remains in the floor report',()=>{const m=buildReportModel(data(),{tipo:'pavimento',pavimento:'13'});assert.equal(m.apartments.length,2);assert.equal(m.apartments[0].status,'conforme');assert.equal(m.items.length,0);});
@@ -69,4 +69,16 @@ test('occurrenceSummary calcula totais e ranking de serviços sobre o mesmo filt
   assert.deepEqual({total:s.total,abertas:s.abertas,pendentes:s.pendentes,em_correcao:s.em_correcao,corrigidas:s.corrigidas,conformes:s.conformes},{total:4,abertas:2,pendentes:1,em_correcao:1,corrigidas:1,conformes:1});
   assert.deepEqual(s.servicos,[{servico:'Pintura',total:2,abertas:2},{servico:'Elétrica',total:2,abertas:0}]);
   assert.equal(occurrenceSummary(d,{servico:'Elétrica'}).total,2);
+});
+
+
+test('queryOccurrences rejeita filtros inventados e retorna consulta validada',()=>{
+  const d=data();d.ambientes=[{nome:'Sala'}];d.itens=[{id:'1',apartamento_id:'a',servico:'Pintura',ambiente:'Sala',status:'pendente'}];
+  const q=queryOccurrences(d,{pavimento:'13',apartamento:'1301',servico:'Pintura',ambiente:'Sala',status:'pendente'});
+  assert.equal(q.items.length,1);assert.equal(q.summary.abertas,1);assert.equal(q.filters.apartamento,'1301');
+  assert.throws(()=>validateOccurrenceQuery(d,{pavimento:'99'}),/Pavimento não encontrado/);
+  assert.throws(()=>validateOccurrenceQuery(d,{apartamento:'9999'}),/Apartamento não encontrado/);
+  assert.throws(()=>validateOccurrenceQuery(d,{servico:'Inventado'}),/Serviço não cadastrado/);
+  assert.throws(()=>validateOccurrenceQuery(d,{ambiente:'Inventado'}),/Ambiente não cadastrado/);
+  assert.throws(()=>validateOccurrenceQuery(d,{status:'apagado'}),/Status de ocorrência inválido/);
 });
