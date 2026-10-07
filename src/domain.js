@@ -48,6 +48,24 @@ export function filterOccurrences(data, filters={}) {
   });
 }
 
+export function occurrenceSummary(data, filters={}) {
+  const items=filterOccurrences(data,filters);
+  const counts={total:items.length,abertas:0,pendentes:0,em_correcao:0,corrigidas:0,conformes:0};
+  const byService=new Map();
+  for(const item of items){
+    if(isOpen(item)) counts.abertas++;
+    if(item.status==='pendente') counts.pendentes++;
+    if(['correcao','em_correcao'].includes(item.status)) counts.em_correcao++;
+    if(item.status==='corrigido') counts.corrigidas++;
+    if(item.status==='conforme') counts.conformes++;
+    const service=item.servico||'Sem serviço';
+    const current=byService.get(service)||{servico:service,total:0,abertas:0};
+    current.total++;if(isOpen(item))current.abertas++;byService.set(service,current);
+  }
+  const servicos=[...byService.values()].sort((a,b)=>b.abertas-a.abertas||b.total-a.total||natural(a.servico,b.servico));
+  return {...counts,servicos};
+}
+
 export function buildReportModel(data, filters) {
   const {tipo, pavimento='', servico='', status='', responsavel=''} = filters;
   if (!REPORT_TYPES[tipo]) throw new Error('Selecione o tipo de relatório.');
