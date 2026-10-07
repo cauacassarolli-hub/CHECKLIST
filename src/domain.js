@@ -64,6 +64,17 @@ export function queryOccurrences(data, input={}) {
   return {filters,items:filterOccurrences(data,filters),summary:occurrenceSummary(data,filters)};
 }
 
+export const AGENT_READ_ACTIONS = Object.freeze(['CONSULTAR_OCORRENCIAS','CONSULTAR_RESUMO']);
+
+export function executeAgentReadAction(data, request={}) {
+  if(!request || typeof request!=='object' || Array.isArray(request)) throw new Error('Solicitação do agente inválida.');
+  const action=String(request.acao||'').trim().toUpperCase();
+  if(!AGENT_READ_ACTIONS.includes(action)) throw new Error('Ação não permitida para consulta do agente.');
+  const query=queryOccurrences(data,request.filtros||{});
+  if(action==='CONSULTAR_RESUMO') return {acao:action,filtros:query.filters,resumo:query.summary};
+  return {acao:action,filtros:query.filters,resumo:query.summary,ocorrencias:query.items};
+}
+
 export function occurrenceSummary(data, filters={}) {
   const items=filterOccurrences(data,filters);
   const counts={total:items.length,abertas:0,pendentes:0,em_correcao:0,corrigidas:0,conformes:0};

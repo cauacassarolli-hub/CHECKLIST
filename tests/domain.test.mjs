@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow,filterOccurrences,occurrenceSummary,validateOccurrenceQuery,queryOccurrences} from '../src/domain.js';
+import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow,filterOccurrences,occurrenceSummary,validateOccurrenceQuery,queryOccurrences,executeAgentReadAction,AGENT_READ_ACTIONS} from '../src/domain.js';
 const data=()=>({obra:{id:'w',nome:'Obra QA'},apartamentos:[{id:'a',pavimento:'13',apartamento:'1301',status:'conforme'},{id:'b',pavimento:'13',apartamento:'1302',status:'nao_iniciado'}],ambientes:[],servicos:[{nome:'Pintura'}],itens:[]});
 test('An unvisited floor is never released just because there are no records',()=>{const m=buildReportModel(data(),{tipo:'finalizacao',pavimento:'13'});assert.equal(m.summary.notApproved,1);assert.match(m.summary.conclusion,/não liberado/);});
 test('Conforme without records remains in the floor report',()=>{const m=buildReportModel(data(),{tipo:'pavimento',pavimento:'13'});assert.equal(m.apartments.length,2);assert.equal(m.apartments[0].status,'conforme');assert.equal(m.items.length,0);});
@@ -81,4 +81,16 @@ test('queryOccurrences rejeita filtros inventados e retorna consulta validada',(
   assert.throws(()=>validateOccurrenceQuery(d,{servico:'Inventado'}),/Serviço não cadastrado/);
   assert.throws(()=>validateOccurrenceQuery(d,{ambiente:'Inventado'}),/Ambiente não cadastrado/);
   assert.throws(()=>validateOccurrenceQuery(d,{status:'apagado'}),/Status de ocorrência inválido/);
+});
+
+
+test('executeAgentReadAction limita o agente a consultas somente leitura',()=>{
+  const d=data();d.ambientes=[{nome:'Sala'}];d.itens=[{id:'1',apartamento_id:'a',servico:'Pintura',ambiente:'Sala',status:'pendente'}];
+  assert.deepEqual(AGENT_READ_ACTIONS,['CONSULTAR_OCORRENCIAS','CONSULTAR_RESUMO']);
+  const resumo=executeAgentReadAction(d,{acao:'consultar_resumo',filtros:{pavimento:'13'}});
+  assert.equal(resumo.acao,'CONSULTAR_RESUMO');assert.equal(resumo.resumo.abertas,1);assert.equal('ocorrencias' in resumo,false);
+  const consulta=executeAgentReadAction(d,{acao:'CONSULTAR_OCORRENCIAS',filtros:{servico:'Pintura'}});
+  assert.equal(consulta.ocorrencias[0].id,'1');
+  for(const acao of ['CRIAR_OCORRENCIA','ALTERAR_STATUS','EXCLUIR_OCORRENCIA','ENVIAR_EMAIL']) assert.throws(()=>executeAgentReadAction(d,{acao}),/não permitida/);
+  assert.throws(()=>executeAgentReadAction(d,null),/inválida/);
 });
