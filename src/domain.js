@@ -32,6 +32,22 @@ export function apartmentStatus(apt, items) {
   if (isApproved(apt)) return apt.status;
   return rows.length ? 'em_vistoria' : apt.status || 'nao_iniciado';
 }
+export function filterOccurrences(data, filters={}) {
+  const norm=value=>String(value??'').trim().toLocaleLowerCase('pt-BR');
+  const apartment=norm(filters.apartamento), floor=norm(filters.pavimento), service=norm(filters.servico), room=norm(filters.ambiente), status=norm(filters.status);
+  const aptById=new Map((data.apartamentos||[]).map(a=>[a.id,a]));
+  return (data.itens||[]).filter(item=>{
+    const apt=aptById.get(item.apartamento_id);
+    if (!apt) return false;
+    if (floor && norm(apt.pavimento)!==floor) return false;
+    if (apartment && norm(apt.apartamento)!==apartment) return false;
+    if (service && norm(item.servico)!==service) return false;
+    if (room && norm(item.ambiente)!==room) return false;
+    if (status && norm(item.status)!==status) return false;
+    return true;
+  });
+}
+
 export function buildReportModel(data, filters) {
   const {tipo, pavimento='', servico='', status='', responsavel=''} = filters;
   if (!REPORT_TYPES[tipo]) throw new Error('Selecione o tipo de relatório.');
