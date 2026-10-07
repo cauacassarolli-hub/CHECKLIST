@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow,filterOccurrences} from '../src/domain.js';
+import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow,filterOccurrences,occurrenceSummary} from '../src/domain.js';
 const data=()=>({obra:{id:'w',nome:'Obra QA'},apartamentos:[{id:'a',pavimento:'13',apartamento:'1301',status:'conforme'},{id:'b',pavimento:'13',apartamento:'1302',status:'nao_iniciado'}],ambientes:[],servicos:[{nome:'Pintura'}],itens:[]});
 test('An unvisited floor is never released just because there are no records',()=>{const m=buildReportModel(data(),{tipo:'finalizacao',pavimento:'13'});assert.equal(m.summary.notApproved,1);assert.match(m.summary.conclusion,/não liberado/);});
 test('Conforme without records remains in the floor report',()=>{const m=buildReportModel(data(),{tipo:'pavimento',pavimento:'13'});assert.equal(m.apartments.length,2);assert.equal(m.apartments[0].status,'conforme');assert.equal(m.items.length,0);});
@@ -55,4 +55,18 @@ test('filterOccurrences combina pavimento, apartamento, serviço, ambiente e sta
   assert.deepEqual(filterOccurrences(d,{pavimento:'13',servico:'pintura',ambiente:'SALA',status:'pendente'}).map(i=>i.id),['1']);
   assert.deepEqual(filterOccurrences(d,{apartamento:'1302'}).map(i=>i.id),['2']);
   assert.deepEqual(filterOccurrences(d,{}).map(i=>i.id),['1','2','3']);
+});
+
+
+test('occurrenceSummary calcula totais e ranking de serviços sobre o mesmo filtro',()=>{
+  const d=data();d.itens=[
+    {id:'1',apartamento_id:'a',servico:'Pintura',ambiente:'Sala',status:'pendente'},
+    {id:'2',apartamento_id:'a',servico:'Pintura',ambiente:'Quarto',status:'correcao'},
+    {id:'3',apartamento_id:'b',servico:'Elétrica',ambiente:'Sala',status:'corrigido'},
+    {id:'4',apartamento_id:'b',servico:'Elétrica',ambiente:'Sala',status:'conforme'}
+  ];
+  const s=occurrenceSummary(d,{pavimento:'13'});
+  assert.deepEqual({total:s.total,abertas:s.abertas,pendentes:s.pendentes,em_correcao:s.em_correcao,corrigidas:s.corrigidas,conformes:s.conformes},{total:4,abertas:2,pendentes:1,em_correcao:1,corrigidas:1,conformes:1});
+  assert.deepEqual(s.servicos,[{servico:'Pintura',total:2,abertas:2},{servico:'Elétrica',total:2,abertas:0}]);
+  assert.equal(occurrenceSummary(d,{servico:'Elétrica'}).total,2);
 });
