@@ -3,7 +3,7 @@ import {Repository} from '../src/repository.js';
 const sample=()=>({id:'record-id',obra_id:'work-id',apartamento_id:'apartment-id',ambiente:'Sala QA',servico:'Pintura QA',titulo:'Falha de pintura QA',origem:'manual',status:'pendente',responsavel:'',observacao:'Teste',prioridade:'normal',photos:{antes:{blob:new Blob(['before'],{type:'image/jpeg'})}}});
 function fake(controls={}) {
   const calls=[],stored=new Map(),rows=new Map(),filters=[];
-  const repo=new Repository({storage:{from:()=>({
+  const repo=new Repository({rpc:async(name,args)=>{calls.push(['rpc',name,args]);if(controls.rpcError)return{error:new Error('RPC indisponível')};return{data:controls.rpcData??{filtros:{},resumo:{total:0},ocorrencias:[]}};},storage:{from:()=>({
     upload:async(path,blob)=>{calls.push('upload');if(controls.uploadFail)return{error:new Error('Rede indisponível')};stored.set(path,blob);return{data:{path}};},
     download:async path=>({data:controls.corruptDownload?new Blob(['x']):stored.get(path)}),remove:async()=>({data:[]})
   })},from:()=>{
@@ -69,4 +69,20 @@ test('Lost successful response is recognized for new and existing corrected reco
 });
 test('Pre-upgrade draft without revision must be explicitly reloaded',async()=>{
   const {repo,calls}=fake();await assert.rejects(repo.saveDraft({...sample(),existing:true}),e=>e.code==='CONFLICT');assert.deepEqual(calls,[]);
+});
+
+
+test('Fiscal query uses authenticated read-only RPC with normalized filters',async()=>{
+  const {repo,calls}=fake({rpcData:{filtros:{servico:'Pintura QA'},resumo:{total:1},ocorrencias:[{id:'record-id'}]}});
+  const result=await repo.queryOccurrences('work-id',{pavimento:' 13 ',apartamento:'',servico:' Pintura QA ',ambiente:null,status:'pendente'});
+  assert.equal(result.resumo.total,1);
+  const call=calls.find(c=>Array.isArray(c)&&c[0]==='rpc');
+  assert.equal(call[1],'chk_consultar_ocorrencias');
+  assert.deepEqual(call[2],{p_obra_id:'work-id',p_pavimento:'13',p_apartamento:null,p_servico:'Pintura QA',p_ambiente:null,p_status:'pendente'});
+});
+
+test('Fiscal query requires session and propagates RPC errors',async()=>{
+  const {repo}=fake({rpcError:true});
+  await assert.rejects(repo.queryOccurrences('work-id',{}),/RPC indisponível/);
+  repo.user=null;await assert.rejects(repo.queryOccurrences('work-id',{}),/Entre novamente/);
 });

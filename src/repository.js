@@ -60,6 +60,18 @@ export class Repository {
     const activities=check(await this.client.from('chk_atividades').select('*').eq('obra_id',obra.id).order('created_at',{ascending:false}).order('id').limit(50));
     return Object.fromEntries([['obra',current],['atividades',activities],...tables.map((t,i)=>[t,rows[i]])]);
   }
+  async queryOccurrences(obraId,filters={}) {
+    this.requireUser();
+    const clean=value=>String(value??'').trim()||null;
+    return check(await this.client.rpc('chk_consultar_ocorrencias',{
+      p_obra_id:obraId,
+      p_pavimento:clean(filters.pavimento),
+      p_apartamento:clean(filters.apartamento),
+      p_servico:clean(filters.servico),
+      p_ambiente:clean(filters.ambiente),
+      p_status:clean(filters.status)
+    }));
+  }
   async signedPhoto(path) {return check(await this.client.storage.from(PHOTOS).createSignedUrl(path,60)).signedUrl;}
   async download(bucket,path) {const blob=check(await this.client.storage.from(bucket).download(path));if(!blob?.size)throw new Error('Arquivo vazio ou indisponível.');return blob;}
   async upload(bucket,path,blob) {
