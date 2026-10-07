@@ -8,6 +8,8 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function setup(userId='owner') {
   const {window,document}=parseHTML('<html><body><div id="app"></div></body></html>');
   globalThis.window=window;globalThis.document=document;
+  window.HTMLElement.prototype.scrollIntoView=()=>{};
+  globalThis.FormData=class TestFormData { constructor(form){this.entries=[];for(const el of form?.querySelectorAll?.('[name]')||[]){if(el.disabled||!el.name)continue;const option=el.tagName==='SELECT'?el.querySelector('option[selected]')||el.querySelector('option'):null;this.entries.push([el.name,option?option.getAttribute('value')||'':el.getAttribute('value')||el.textContent||'']);}} [Symbol.iterator](){return this.entries[Symbol.iterator]();} };
   Object.defineProperty(globalThis,'navigator',{value:{onLine:true},configurable:true});
   Object.defineProperty(document,'visibilityState',{value:'visible'});
   window.scrollTo=()=>{};
@@ -22,7 +24,7 @@ async function setup(userId='owner') {
   let offline=false;
   const repo={session:async()=>user,acceptInvites:async()=>0,list:async()=>[data.obra],load:async()=>structuredClone(data),
     get:async(table,id)=>{if(offline)throw new Error('Network unavailable');return structuredClone(data[table].find(r=>r.id===id));},
-    signedPhoto:async()=> 'about:blank'};
+    signedPhoto:async()=> 'about:blank',queryOccurrences:async(obraId,filters)=>({filtros:filters,resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0},ocorrencias:[{id:'i',pavimento:'1º',apartamento:'101',titulo:'Falha de pintura',servico:'Pintura',ambiente:'Sala',status:'pendente',descricao:'Verificar pintura',updated_at:'2026-09-23T10:00:00Z'}]})};
   const app=await mountApp(repo,root);
   const click=async selector=>{const el=document.querySelector(selector);assert.ok(el,selector);el.dispatchEvent(new window.Event('click',{bubbles:true}));await tick();};
   return{root,document,window,data,app,click,cache,goOffline:()=>{offline=true;navigator.onLine=false;}};
@@ -66,5 +68,20 @@ test('Offline recovery preserves the draft revision and local observations',asyn
     assert.match(ui.document.querySelector('.modal').textContent,/Rascunho recuperado/);
     assert.equal(ui.document.querySelector('textarea[name="observacao"]').value,'Anotação ainda não enviada');
     assert.equal(ui.cache.get('member/w/a/i').versao,1);
+  }finally{ui.app.stop();}
+});
+
+
+test('Fiscal reader consults backend and renders read-only results',async()=>{
+  const ui=await setup('member');try{
+    await ui.click('[data-action="page"][data-page="fiscal"]');
+    assert.match(ui.root.textContent,/FISCAL DE QUALIDADE · SOMENTE LEITURA/);
+    const form=ui.root.querySelector('form[data-form="fiscal"]');assert.ok(form);
+    form.querySelector('[name="pavimento"] option[value="1º"]').setAttribute('selected','');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));await tick();await tick();
+    assert.equal(form.querySelector('[data-error]').textContent,'');
+    assert.match(ui.root.textContent,/Falha de pintura/);assert.match(ui.root.textContent,/1.*ocorrências/s);
+    assert.equal(ui.root.querySelector('.fiscal-record[data-action]'),null);
+    assert.equal(ui.root.querySelector('[data-action="edit-item"]'),null);
   }finally{ui.app.stop();}
 });
