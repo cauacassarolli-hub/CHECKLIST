@@ -104,7 +104,7 @@ test('Fiscal interpreta consultas em portugues apenas como leitura',()=>{
 });
 
 test('Fiscal recusa comandos de escrita em linguagem natural',()=>{
-  for(const q of ['Crie uma ocorrência no 1301','Altere o status para corrigido','Exclua a pendência','Envie o relatório'])
+  for(const q of ['Crie uma ocorrência no 1301','Cadastre uma ocorrência','Registre uma pendência','Altere o status para corrigido','Edite a ocorrência','Exclua a pendência','Apague a ocorrência','Remova a pendência','Envie o relatório','Mande o relatório','Aprove o apartamento','Resolva a pendência','Corrija a ocorrência','Finalize a vistoria'])
     assert.throws(()=>interpretAgentQuestion(data(),q),/somente leitura/);
   assert.throws(()=>interpretAgentQuestion(data(),'   '),/Digite uma pergunta/);
 });
