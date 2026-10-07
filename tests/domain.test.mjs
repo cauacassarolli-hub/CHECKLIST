@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow} from '../src/domain.js';
+import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow,filterOccurrences} from '../src/domain.js';
 const data=()=>({obra:{id:'w',nome:'Obra QA'},apartamentos:[{id:'a',pavimento:'13',apartamento:'1301',status:'conforme'},{id:'b',pavimento:'13',apartamento:'1302',status:'nao_iniciado'}],ambientes:[],servicos:[{nome:'Pintura'}],itens:[]});
 test('An unvisited floor is never released just because there are no records',()=>{const m=buildReportModel(data(),{tipo:'finalizacao',pavimento:'13'});assert.equal(m.summary.notApproved,1);assert.match(m.summary.conclusion,/não liberado/);});
 test('Conforme without records remains in the floor report',()=>{const m=buildReportModel(data(),{tipo:'pavimento',pavimento:'13'});assert.equal(m.apartments.length,2);assert.equal(m.apartments[0].status,'conforme');assert.equal(m.items.length,0);});
@@ -41,4 +41,18 @@ test('draftRow exige titulo e persiste origem da ocorrencia', () => {
   assert.throws(()=>draftRow({...base,titulo:'   '},'u1'),/título da ocorrência/i);
   const legacy=draftRow({...base,existing:true,titulo:undefined},'u1');
   assert.equal(legacy.titulo,null);
+});
+
+
+test('filterOccurrences combina pavimento, apartamento, serviço, ambiente e status sem misturar obras',()=>{
+  const d=data();d.apartamentos.push({id:'c',pavimento:'14',apartamento:'1401'});
+  d.itens=[
+    {id:'1',apartamento_id:'a',servico:'Pintura',ambiente:'Sala',status:'pendente'},
+    {id:'2',apartamento_id:'b',servico:'Elétrica',ambiente:'Quarto',status:'corrigido'},
+    {id:'3',apartamento_id:'c',servico:'Pintura',ambiente:'Sala',status:'pendente'},
+    {id:'orfao',apartamento_id:'fora-da-obra',servico:'Pintura',ambiente:'Sala',status:'pendente'}
+  ];
+  assert.deepEqual(filterOccurrences(d,{pavimento:'13',servico:'pintura',ambiente:'SALA',status:'pendente'}).map(i=>i.id),['1']);
+  assert.deepEqual(filterOccurrences(d,{apartamento:'1302'}).map(i=>i.id),['2']);
+  assert.deepEqual(filterOccurrences(d,{}).map(i=>i.id),['1','2','3']);
 });
