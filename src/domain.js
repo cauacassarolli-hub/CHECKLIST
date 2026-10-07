@@ -48,6 +48,22 @@ export function filterOccurrences(data, filters={}) {
   });
 }
 
+export function validateOccurrenceQuery(data, input={}) {
+  const clean=value=>String(value??'').trim();
+  const filters={pavimento:clean(input.pavimento),apartamento:clean(input.apartamento),servico:clean(input.servico),ambiente:clean(input.ambiente),status:clean(input.status)};
+  if(filters.pavimento && !(data.apartamentos||[]).some(a=>a.pavimento===filters.pavimento)) throw new Error('Pavimento não encontrado nesta obra.');
+  if(filters.apartamento && !(data.apartamentos||[]).some(a=>a.apartamento===filters.apartamento && (!filters.pavimento||a.pavimento===filters.pavimento))) throw new Error('Apartamento não encontrado no filtro informado.');
+  if(filters.servico && !(data.servicos||[]).some(s=>s.nome===filters.servico)) throw new Error('Serviço não cadastrado nesta obra.');
+  if(filters.ambiente && !(data.ambientes||[]).some(a=>a.nome===filters.ambiente)) throw new Error('Ambiente não cadastrado nesta obra.');
+  if(filters.status && !ITEM_STATUS[filters.status]) throw new Error('Status de ocorrência inválido.');
+  return filters;
+}
+
+export function queryOccurrences(data, input={}) {
+  const filters=validateOccurrenceQuery(data,input);
+  return {filters,items:filterOccurrences(data,filters),summary:occurrenceSummary(data,filters)};
+}
+
 export function occurrenceSummary(data, filters={}) {
   const items=filterOccurrences(data,filters);
   const counts={total:items.length,abertas:0,pendentes:0,em_correcao:0,corrigidas:0,conformes:0};
