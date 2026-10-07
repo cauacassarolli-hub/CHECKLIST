@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow,filterOccurrences,occurrenceSummary,validateOccurrenceQuery,queryOccurrences,executeAgentReadAction,AGENT_READ_ACTIONS} from '../src/domain.js';
+import {buildReportModel,apartmentStatus,validatePublicConfig,progressOf,isOverdue,catalogOptions,recordOptions,draftRow,filterOccurrences,occurrenceSummary,validateOccurrenceQuery,queryOccurrences,executeAgentReadAction,AGENT_READ_ACTIONS,interpretAgentQuestion} from '../src/domain.js';
 const data=()=>({obra:{id:'w',nome:'Obra QA'},apartamentos:[{id:'a',pavimento:'13',apartamento:'1301',status:'conforme'},{id:'b',pavimento:'13',apartamento:'1302',status:'nao_iniciado'}],ambientes:[],servicos:[{nome:'Pintura'}],itens:[]});
 test('An unvisited floor is never released just because there are no records',()=>{const m=buildReportModel(data(),{tipo:'finalizacao',pavimento:'13'});assert.equal(m.summary.notApproved,1);assert.match(m.summary.conclusion,/não liberado/);});
 test('Conforme without records remains in the floor report',()=>{const m=buildReportModel(data(),{tipo:'pavimento',pavimento:'13'});assert.equal(m.apartments.length,2);assert.equal(m.apartments[0].status,'conforme');assert.equal(m.items.length,0);});
@@ -93,4 +93,18 @@ test('executeAgentReadAction limita o agente a consultas somente leitura',()=>{
   assert.equal(consulta.ocorrencias[0].id,'1');
   for(const acao of ['CRIAR_OCORRENCIA','ALTERAR_STATUS','EXCLUIR_OCORRENCIA','ENVIAR_EMAIL']) assert.throws(()=>executeAgentReadAction(d,{acao}),/não permitida/);
   assert.throws(()=>executeAgentReadAction(d,null),/inválida/);
+});
+
+
+test('Fiscal interpreta consultas em portugues apenas como leitura',()=>{
+  const d=data();d.ambientes=[{nome:'Sala'}];
+  assert.deepEqual(interpretAgentQuestion(d,'Quais pendências de Pintura existem no pavimento 13?'),{acao:'CONSULTAR_OCORRENCIAS',filtros:{pavimento:'13',apartamento:'',servico:'Pintura',ambiente:'',status:'pendente'}});
+  assert.deepEqual(interpretAgentQuestion(d,'Quantas pendências existem no apartamento 1302?'),{acao:'CONSULTAR_RESUMO',filtros:{pavimento:'',apartamento:'1302',servico:'',ambiente:'',status:'pendente'}});
+  assert.deepEqual(interpretAgentQuestion(d,'Mostre ocorrências de Pintura na Sala'),{acao:'CONSULTAR_OCORRENCIAS',filtros:{pavimento:'',apartamento:'',servico:'Pintura',ambiente:'Sala',status:''}});
+});
+
+test('Fiscal recusa comandos de escrita em linguagem natural',()=>{
+  for(const q of ['Crie uma ocorrência no 1301','Altere o status para corrigido','Exclua a pendência','Envie o relatório'])
+    assert.throws(()=>interpretAgentQuestion(data(),q),/somente leitura/);
+  assert.throws(()=>interpretAgentQuestion(data(),'   '),/Digite uma pergunta/);
 });
