@@ -75,7 +75,7 @@ test('Fiscal reader consults backend and renders read-only results',async()=>{
     await ui.click('[data-action="page"][data-page="fiscal"]');
     assert.match(ui.root.textContent,/FISCAL DE QUALIDADE · SOMENTE LEITURA/);
     const form=ui.root.querySelector('form[data-form="fiscal"]');assert.ok(form);
-    form.querySelector('[name="pavimento"]').value='1º';
+    form.querySelector('[name="pavimento"] option[value="1º"]').setAttribute('selected','');
     form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));await tick();await tick();
     assert.match(ui.root.textContent,/Falha de pintura/);assert.match(ui.root.textContent,/1.*ocorrências/s);
     assert.equal(ui.root.querySelector('.fiscal-record[data-action]'),null);
