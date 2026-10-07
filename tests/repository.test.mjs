@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {Repository} from '../src/repository.js';
-const sample=()=>({id:'record-id',obra_id:'work-id',apartamento_id:'apartment-id',ambiente:'Sala QA',servico:'Pintura QA',status:'pendente',responsavel:'',observacao:'Teste',prioridade:'normal',photos:{antes:{blob:new Blob(['before'],{type:'image/jpeg'})}}});
+const sample=()=>({id:'record-id',obra_id:'work-id',apartamento_id:'apartment-id',ambiente:'Sala QA',servico:'Pintura QA',titulo:'Falha de pintura QA',origem:'manual',status:'pendente',responsavel:'',observacao:'Teste',prioridade:'normal',photos:{antes:{blob:new Blob(['before'],{type:'image/jpeg'})}}});
 function fake(controls={}) {
   const calls=[],stored=new Map(),rows=new Map(),filters=[];
   const repo=new Repository({storage:{from:()=>({
