@@ -8,6 +8,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function setup(userId='owner') {
   const {window,document}=parseHTML('<html><body><div id="app"></div></body></html>');
   globalThis.window=window;globalThis.document=document;
+  window.HTMLElement.prototype.scrollIntoView=()=>{};
   globalThis.FormData=class TestFormData { constructor(form){this.entries=[];for(const el of form?.querySelectorAll?.('[name]')||[]){if(el.disabled||!el.name)continue;const option=el.tagName==='SELECT'?el.querySelector('option[selected]')||el.querySelector('option'):null;this.entries.push([el.name,option?option.getAttribute('value')||'':el.getAttribute('value')||el.textContent||'']);}} [Symbol.iterator](){return this.entries[Symbol.iterator]();} };
   Object.defineProperty(globalThis,'navigator',{value:{onLine:true},configurable:true});
   Object.defineProperty(document,'visibilityState',{value:'visible'});
@@ -78,6 +79,7 @@ test('Fiscal reader consults backend and renders read-only results',async()=>{
     const form=ui.root.querySelector('form[data-form="fiscal"]');assert.ok(form);
     form.querySelector('[name="pavimento"] option[value="1º"]').setAttribute('selected','');
     form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));await tick();await tick();
+    assert.equal(form.querySelector('[data-error]').textContent,'');
     assert.match(ui.root.textContent,/Falha de pintura/);assert.match(ui.root.textContent,/1.*ocorrências/s);
     assert.equal(ui.root.querySelector('.fiscal-record[data-action]'),null);
     assert.equal(ui.root.querySelector('[data-action="edit-item"]'),null);
