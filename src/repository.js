@@ -97,7 +97,7 @@ export class Repository {
     }
     // A successful write with a lost response may be retried, never overwritten.
     const saved=await this.get('itens',draft.id);
-    const fields=['user_id','obra_id','apartamento_id','ambiente','servico','status','responsavel','prioridade','observacao','prazo','foto_antes_path','foto_depois_path'];
+    const fields=['user_id','obra_id','apartamento_id','ambiente','servico','titulo','origem','status','responsavel','prioridade','observacao','prazo','foto_antes_path','foto_depois_path'];
     if(saved && fields.every(k=>(saved[k]??null)===(row[k]??null)) &&
       (saved.data_correcao ? Date.parse(saved.data_correcao) : null)===(row.data_correcao ? Date.parse(row.data_correcao) : null))return saved;
     throw conflict();

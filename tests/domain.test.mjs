@@ -23,11 +23,22 @@ test('Inactive services remain available for reports with their historical photo
   assert.equal(buildReportModel(d,{tipo:'servico',servico:'Pintura'}).items[0].foto_antes_path,'private/photo.jpg');
 });
 test('An optional priority stays empty and a deadline survives saving',()=>{
-  const row=draftRow({id:'i',obra_id:'w',apartamento_id:'a',ambiente:'Sala',servico:'Pintura',status:'pendente',responsavel:'',observacao:'',prioridade:'',prazo:'2026-09-30'},'u');
+  const row=draftRow({id:'i',obra_id:'w',apartamento_id:'a',ambiente:'Sala',servico:'Pintura',titulo:'Ocorrência de teste',status:'pendente',responsavel:'',observacao:'',prioridade:'',prazo:'2026-09-30'},'u');
   assert.equal(row.prioridade,null);assert.equal(row.prazo,'2026-09-30');
 });
 test('Legacy priorities survive catalog customization without becoming new defaults',()=>{
   const d={ambientes:[],servicos:[],prioridades:[{nome:'Emergência',ativo:true}]};
   assert.deepEqual(recordOptions(d,{prioridade:'alta'}).prioridades,[['Emergência','Emergência'],['alta','alta (histórico)']]);
   assert.deepEqual(recordOptions(d).prioridades,[['Emergência','Emergência']]);
+});
+
+
+test('draftRow exige titulo e persiste origem da ocorrencia', () => {
+  const base={id:'i1',obra_id:'o1',apartamento_id:'a1',ambiente:'Sala',servico:'Pintura',status:'pendente',titulo:'  Falha de pintura  ',origem:'manual'};
+  const row=draftRow(base,'u1');
+  assert.equal(row.titulo,'Falha de pintura');
+  assert.equal(row.origem,'manual');
+  assert.throws(()=>draftRow({...base,titulo:'   '},'u1'),/título da ocorrência/i);
+  const legacy=draftRow({...base,existing:true,titulo:undefined},'u1');
+  assert.equal(legacy.titulo,null);
 });
