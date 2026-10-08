@@ -138,3 +138,45 @@ export function progressOf(items) {
 // Only an item that is still open can be overdue; a corrected/conforme item never is,
 // even if it was fixed after its own deadline.
 export const isOverdue=(item,today=new Date())=>!!item.prazo && isOpen(item) && new Date(item.prazo+'T23:59:59')<today;
+
+
+const normalizeAgentText=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
+const findCatalogMention=(text,rows=[])=>{
+  const normalized=normalizeAgentText(text);
+  return rows.find(row=>normalized.includes(normalizeAgentText(row.nome)))?.nome||'';
+};
+
+/**
+ * Interpreta apenas consultas de leitura previsíveis.
+ * Não executa nada e nunca converte verbos de escrita em ações permitidas.
+ */
+export function interpretAgentQuestion(data,question=''){
+  const raw=String(question??'').trim();
+  if(!raw)throw new Error('Digite uma pergunta para o Fiscal.');
+  const text=normalizeAgentText(raw);
+  if(/\b(cri(?:ar|e|a)|cadastr\w*|registr\w*|alter\w*|edit\w*|exclu\w*|apag\w*|delet\w*|remov\w*|envi\w*|mand\w*|aprov\w*|resolv\w*|corrij\w*|corrig\w*|finaliz\w*)\b/.test(text))
+    throw new Error('O Fiscal está em modo somente leitura. Esta solicitação tenta alterar dados.');
+
+  const filtros={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};
+  const floorMatch=text.match(/(?:pavimento|andar)\s+(?:do\s+|da\s+)?([\wºª-]+)/i);
+  if(floorMatch){
+    const wanted=normalizeAgentText(floorMatch[1]).replace(/(?:o|a)$/,'');
+    const floor=(data.apartamentos||[]).map(a=>a.pavimento).find(v=>normalizeAgentText(v).replace(/(?:o|a)$/,'')===wanted);
+    if(floor)filtros.pavimento=floor;
+  }
+  const aptMatch=text.match(/(?:apto|apartamento)\s*([\w-]+)/i);
+  if(aptMatch){
+    const wanted=normalizeAgentText(aptMatch[1]);
+    const apt=(data.apartamentos||[]).find(a=>normalizeAgentText(a.apartamento)===wanted && (!filtros.pavimento||a.pavimento===filtros.pavimento));
+    if(apt)filtros.apartamento=apt.apartamento;
+  }
+  filtros.servico=findCatalogMention(text,data.servicos);
+  filtros.ambiente=findCatalogMention(text,data.ambientes);
+  if(/\bpendencias?\b|\bpendentes?\b/.test(text))filtros.status='pendente';
+  else if(/\bem correcao\b/.test(text))filtros.status='correcao';
+  else if(/\bcorrigid[ao]s?\b/.test(text))filtros.status='corrigido';
+  else if(/\bconformes?\b/.test(text))filtros.status='conforme';
+
+  const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text);
+  return {acao:asksSummary?'CONSULTAR_RESUMO':'CONSULTAR_OCORRENCIAS',filtros};
+}
