@@ -108,3 +108,9 @@ test('Fiscal recusa comandos de escrita em linguagem natural',()=>{
     assert.throws(()=>interpretAgentQuestion(data(),q),/somente leitura/);
   assert.throws(()=>interpretAgentQuestion(data(),'   '),/Digite uma pergunta/);
 });
+
+test('Fiscal nunca amplia consulta quando pavimento ou apartamento não existe',()=>{
+  assert.throws(()=>interpretAgentQuestion(data(),'Mostre ocorrências no pavimento 999'),/Pavimento não encontrado/);
+  assert.throws(()=>interpretAgentQuestion(data(),'Mostre ocorrências do apartamento 9999'),/Apartamento não encontrado/);
+  assert.throws(()=>interpretAgentQuestion(data(),'Mostre ocorrências no pavimento 13 apartamento 9999'),/Apartamento não encontrado/);
+});
