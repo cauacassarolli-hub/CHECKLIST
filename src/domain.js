@@ -162,13 +162,15 @@ export function interpretAgentQuestion(data,question=''){
   if(floorMatch){
     const wanted=normalizeAgentText(floorMatch[1]).replace(/(?:o|a)$/,'');
     const floor=(data.apartamentos||[]).map(a=>a.pavimento).find(v=>normalizeAgentText(v).replace(/(?:o|a)$/,'')===wanted);
-    if(floor)filtros.pavimento=floor;
+    if(!floor)throw new Error('Pavimento não encontrado nesta obra.');
+    filtros.pavimento=floor;
   }
   const aptMatch=text.match(/(?:apto|apartamento)\s*([\w-]+)/i);
   if(aptMatch){
     const wanted=normalizeAgentText(aptMatch[1]);
     const apt=(data.apartamentos||[]).find(a=>normalizeAgentText(a.apartamento)===wanted && (!filtros.pavimento||a.pavimento===filtros.pavimento));
-    if(apt)filtros.apartamento=apt.apartamento;
+    if(!apt)throw new Error('Apartamento não encontrado nesta obra ou no pavimento informado.');
+    filtros.apartamento=apt.apartamento;
   }
   filtros.servico=findCatalogMention(text,data.servicos);
   filtros.ambiente=findCatalogMention(text,data.ambientes);
