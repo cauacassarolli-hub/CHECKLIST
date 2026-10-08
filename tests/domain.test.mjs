@@ -99,7 +99,7 @@ test('executeAgentReadAction limita o agente a consultas somente leitura',()=>{
 test('Fiscal interpreta consultas em portugues apenas como leitura',()=>{
   const d=data();d.ambientes=[{nome:'Sala'}];
   assert.deepEqual(interpretAgentQuestion(d,'Quais pendências de Pintura existem no pavimento 13?'),{acao:'CONSULTAR_OCORRENCIAS',filtros:{pavimento:'13',apartamento:'',servico:'Pintura',ambiente:'',status:'pendente'}});
-  assert.deepEqual(interpretAgentQuestion(d,'Quantas pendências existem no apartamento 1302?'),{acao:'CONSULTAR_RESUMO',filtros:{pavimento:'',apartamento:'1302',servico:'',ambiente:'',status:'pendente'}});
+  assert.deepEqual(interpretAgentQuestion(d,'Quantas pendências existem no apartamento 1302?'),{acao:'CONSULTAR_RESUMO',filtros:{pavimento:'',apartamento:'1302',servico:'',ambiente:'',status:''}});
   assert.deepEqual(interpretAgentQuestion(d,'Mostre ocorrências de Pintura na Sala'),{acao:'CONSULTAR_OCORRENCIAS',filtros:{pavimento:'',apartamento:'',servico:'Pintura',ambiente:'Sala',status:''}});
 });
 
@@ -113,4 +113,10 @@ test('Fiscal nunca amplia consulta quando pavimento ou apartamento não existe',
   assert.throws(()=>interpretAgentQuestion(data(),'Mostre ocorrências no pavimento 999'),/Pavimento não encontrado/);
   assert.throws(()=>interpretAgentQuestion(data(),'Mostre ocorrências do apartamento 9999'),/Apartamento não encontrado/);
   assert.throws(()=>interpretAgentQuestion(data(),'Mostre ocorrências no pavimento 13 apartamento 9999'),/Apartamento não encontrado/);
+});
+
+test('Resumo de pendencias nao exclui ocorrencias em correcao',()=>{
+  const r=interpretAgentQuestion(data(),'Quantas pendências temos?');
+  assert.equal(r.acao,'CONSULTAR_RESUMO');
+  assert.equal(r.filtros.status,'');
 });
