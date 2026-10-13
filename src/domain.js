@@ -179,6 +179,6 @@ export function interpretAgentQuestion(data,question=''){
   else if(/\bcorrigid[ao]s?\b/.test(text))filtros.status='corrigido';
   else if(/\bconformes?\b/.test(text))filtros.status='conforme';
 
-  const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text);
+  const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text)||/\b(qual|quais)\b.*\bservic\w*\b.*\bmais\b|\bservic\w*\b.*\bmais\b/.test(text);
   return {acao:asksSummary?'CONSULTAR_RESUMO':'CONSULTAR_OCORRENCIAS',filtros};
 }
