@@ -85,3 +85,19 @@ test('Fiscal reader consults backend and renders read-only results',async()=>{
     assert.equal(ui.root.querySelector('[data-action="edit-item"]'),null);
   }finally{ui.app.stop();}
 });
+
+test('Fiscal responde pergunta em português sem expor ações de escrita',async()=>{
+  const ui=await setup('member');
+  try {
+    await ui.click('[data-action="page"][data-page="fiscal"]');
+    const form=ui.root.querySelector('form[data-form="fiscal-question"]');
+    assert.ok(form);
+    form.querySelector('[name="pergunta"]').setAttribute('value','Quantas pendências temos?');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.match(ui.root.textContent,/Resposta do Fiscal/);
+    assert.match(ui.root.textContent,/1 ocorrência\(s\) aberta\(s\)/);
+    assert.equal(ui.root.querySelector('.fiscal-record[data-action]'),null);
+    assert.equal(ui.root.querySelector('[data-action="edit-item"]'),null);
+  } finally {ui.app.stop();}
+});
