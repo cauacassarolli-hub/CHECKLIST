@@ -167,7 +167,7 @@ export function interpretAgentQuestion(data,question=''){
   const raw=String(question??'').trim();
   if(!raw)throw new Error('Digite uma pergunta para o Fiscal.');
   const text=normalizeAgentText(raw);
-  if(/\b(cri(?:ar|e|a)|cadastr\w*|registr\w*|alter\w*|edit\w*|exclu\w*|apag\w*|delet\w*|remov\w*|envi\w*|mand\w*|aprov\w*|resolv\w*|corrij\w*|corrig\w*|finaliz\w*)\b/.test(text))
+  if(/\b(?:cri(?:ar|e|a|em)|cadastr(?:ar|e|a|em)|registr(?:ar|e|a|em)|alter(?:ar|e|a|em)|edit(?:ar|e|a|em)|exclu(?:ir|a|am|i)|apag(?:ar|ue|a|uem)|delet(?:ar|e|a|em)|remov(?:er|a|e|am)|envi(?:ar|e|a|em)|mand(?:ar|e|a|em)|aprov(?:ar|e|a|em)|resolv(?:er|a|e|am)|corrig(?:ir|e)|corrij(?:a|am)|finaliz(?:ar|e|a|em)|adicion(?:ar|e|a|em)|atualiz(?:ar|e|a|em)|mud(?:ar|e|a|em)|modific(?:ar|ar|ou|a|am)|liber(?:ar|e|a|em)|conclu(?:ir|a|i|am)|inser(?:ir|a|e|em)|marc(?:ar|a|ou|am)|notific(?:ar|e|a|am))\b/.test(text))
     throw new Error('O Fiscal está em modo somente leitura. Esta solicitação tenta alterar dados.');
 
   const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text)||/\b(qual|quais)\b.*\bservic\w*\b.*\bmais\b|\bservic\w*\b.*\bmais\b/.test(text);
