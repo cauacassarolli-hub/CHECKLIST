@@ -162,3 +162,18 @@ test('Fiscal respeita status explícito mesmo quando a pergunta contém pendênc
   assert.equal(interpretAgentQuestion(d,'Quais pendências corrigidas?').filtros.status,'corrigido');
   assert.equal(interpretAgentQuestion(d,'Quais pendências em correção?').filtros.status,'correcao');
 });
+
+test('Fiscal recusa pedidos fora do escopo e ações de relatório ainda indisponíveis',()=>{
+  const d=data();
+  for(const q of ['Gere relatório do pavimento 13','Exporte o relatório','Baixe o PDF','Compartilhe o relatório'])
+    assert.throws(()=>interpretAgentQuestion(d,q),/não está disponível/);
+  assert.throws(()=>interpretAgentQuestion(d,'Qual é a previsão do tempo?'),/Pergunta não reconhecida|não está disponível/);
+  assert.throws(()=>interpretAgentQuestion(d,'Bom dia, Fiscal!'),/Pergunta não reconhecida/);
+});
+test('Fiscal não ignora filtro explícito de serviço ou ambiente inexistente',()=>{
+  const d=data();d.ambientes=[{nome:'Sala'}];
+  assert.throws(()=>interpretAgentQuestion(d,'Quais ocorrências do serviço de contrapiso?'),/Serviço não cadastrado/);
+  assert.throws(()=>interpretAgentQuestion(d,'Mostre ocorrências do ambiente de garagem'),/Ambiente não cadastrado/);
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do serviço de Pintura').filtros.servico,'Pintura');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do ambiente da Sala').filtros.ambiente,'Sala');
+});
