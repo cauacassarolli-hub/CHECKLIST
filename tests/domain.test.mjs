@@ -136,3 +136,29 @@ test('Fiscal mantém o ranking abrangente e a listagem de pendentes restrita',()
   assert.equal(list.acao,'CONSULTAR_OCORRENCIAS');
   assert.equal(list.filtros.status,'pendente');
 });
+
+test('Fiscal interpreta o pavimento em grafias ordinais e posições diferentes',()=>{
+  const d=data();
+  d.apartamentos=[{id:'a',pavimento:'5º',apartamento:'501'}];
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências no pavimento 5').filtros.pavimento,'5º');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências no pavimento 5º').filtros.pavimento,'5º');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do 5° pavimento').filtros.pavimento,'5º');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências no 5o andar').filtros.pavimento,'5º');
+});
+test('Fiscal recusa apartamento compartilhando código entre pavimentos',()=>{
+  const d=data();
+  d.apartamentos=[{id:'a',pavimento:'5º',apartamento:'01'},{id:'b',pavimento:'6º',apartamento:'01'}];
+  assert.throws(()=>interpretAgentQuestion(d,'Mostre ocorrências do apartamento 01'),/Apartamento ambíguo/);
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do apartamento 01 no 5º pavimento').filtros.pavimento,'5º');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do apartamento 01 no 5º pavimento').filtros.apartamento,'01');
+});
+test('Fiscal não confunde nomes curtos de ambientes e serviços com partes de palavras',()=>{
+  const d=data();d.servicos=[{nome:'Porta'},{nome:'Porta de madeira'}];d.ambientes=[{nome:'Sala'}];
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências de porta de madeira').filtros.servico,'Porta de madeira');
+  assert.equal(interpretAgentQuestion(d,'Mostre salada de ocorrências').filtros.ambiente,'');
+});
+test('Fiscal respeita status explícito mesmo quando a pergunta contém pendências',()=>{
+  const d=data();
+  assert.equal(interpretAgentQuestion(d,'Quais pendências corrigidas?').filtros.status,'corrigido');
+  assert.equal(interpretAgentQuestion(d,'Quais pendências em correção?').filtros.status,'correcao');
+});
