@@ -24,7 +24,7 @@ async function setup(userId='owner',queryOccurrencesOverride=null) {
   let offline=false;
   const repo={session:async()=>user,acceptInvites:async()=>0,list:async()=>[data.obra],load:async()=>structuredClone(data),
     get:async(table,id)=>{if(offline)throw new Error('Network unavailable');return structuredClone(data[table].find(r=>r.id===id));},
-    signedPhoto:async()=> 'about:blank',queryOccurrences:queryOccurrencesOverride||async(obraId,filters)=>({filtros:filters,resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0,servicos:[{servico:'Pintura',abertas:1,total:1}]},ocorrencias:[{id:'i',pavimento:'1º',apartamento:'101',titulo:'Falha de pintura',servico:'Pintura',ambiente:'Sala',status:'pendente',descricao:'Verificar pintura',updated_at:'2026-09-23T10:00:00Z'}]})};
+    signedPhoto:async()=> 'about:blank',queryOccurrences:queryOccurrencesOverride||(async(obraId,filters)=>({filtros:filters,resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0,servicos:[{servico:'Pintura',abertas:1,total:1}]},ocorrencias:[{id:'i',pavimento:'1º',apartamento:'101',titulo:'Falha de pintura',servico:'Pintura',ambiente:'Sala',status:'pendente',descricao:'Verificar pintura',updated_at:'2026-09-23T10:00:00Z'}]}))};
   const app=await mountApp(repo,root);
   const click=async selector=>{const el=document.querySelector(selector);assert.ok(el,selector);el.dispatchEvent(new window.Event('click',{bubbles:true}));await tick();};
   return{root,document,window,data,app,click,cache,goOffline:()=>{offline=true;navigator.onLine=false;}};
