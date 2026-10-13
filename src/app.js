@@ -24,7 +24,7 @@ const errorText=e=> {
 
 export async function mountApp(repo,root) {
   const fiscalAgent=new FiscalAgentGateway(repo);
-  let user,data,obras=[],page='apartamentos',aptId='',floor='',query='',quick='',pendingService='',pendingApartment='',pendingRoom='',pendingStatus='',currentPdf=null,pdfUrl='',draft=null,draftKey='',draftTimer,processing=0,modalBusy=false,reportFilters={tipo:'pavimento',pavimento:'',servico:'',status:'',responsavel:''},fiscalFilters={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''},fiscalResult=null,fiscalAnswer='';
+  let user,data,obras=[],page='apartamentos',aptId='',floor='',query='',quick='',pendingService='',pendingApartment='',pendingRoom='',pendingStatus='',currentPdf=null,pdfUrl='',draft=null,draftKey='',draftTimer,processing=0,modalBusy=false,reportFilters={tipo:'pavimento',pavimento:'',servico:'',status:'',responsavel:''},fiscalFilters={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''},fiscalResult=null,fiscalAnswer='',fiscalRequestSeq=0;
   const previewUrls=new Set();
   // Keep native file inputs in an ordinary modal to reduce iOS picker
   // integration risks. A physical iPhone must confirm the camera behavior.
@@ -70,7 +70,7 @@ export async function mountApp(repo,root) {
   function passwordScreen(){root.innerHTML=`<main class="welcome"><p class="eyebrow">PENTE FINO · ACESSO INDIVIDUAL</p><h1>Definir minha senha</h1><p>${esc(user.email)}</p><form data-form="password" class="panel login-form">${flashError}${field('Nova senha','password','','type="password" autocomplete="new-password" minlength="10" required')}${field('Repita a nova senha','confirmation','','type="password" autocomplete="new-password" minlength="10" required')}<p class="small">Use pelo menos 10 caracteres. Sua senha não será mostrada ao proprietário da obra.</p><button type="submit" class="button primary wide">Salvar senha e continuar</button></form>${button('Voltar para entrar','auth-login','','','text-button')}</main>`;}
   async function loadObras(){await repo.acceptInvites();obras=await repo.list('obras');}
   function obraScreen(){root.innerHTML=`<main class="container"><p class="eyebrow">PENTE FINO</p><div class="section-head"><h1>Suas obras</h1>${button('Sair','logout','logout')}</div><p class="muted">Escolha a obra que você vai vistoriar.</p>${flashError}<div class="cards">${obras.length?obras.map(o=>`<button class="project-card" data-action="select-obra" data-id="${o.id}">${icon('building')}<span><strong>${esc(o.nome)}</strong><small>${esc(o.empresa||'Obra residencial')}</small></span>${icon('arrow')}</button>`).join(''):empty('Sua primeira obra','Cadastre a obra para começar.')}</div>${button('Nova obra','new-obra','plus','','primary')}</main>`;}
-  async function chooseObra(id){const obra=obras.find(o=>o.id===id);if(!obra)throw new Error('Obra indisponível.');data=await repo.load(obra);try{localStorage.setItem(`pf-obra-${user.id}`,id);}catch{}aptId='';floor='';pendingService='';page='apartamentos';fiscalFilters={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};fiscalResult=null;fiscalAnswer='';reportFilters={tipo:'pavimento',pavimento:'',servico:'',status:'',responsavel:''};clearPdf();render();}
+  async function chooseObra(id){const obra=obras.find(o=>o.id===id);if(!obra)throw new Error('Obra indisponível.');++fiscalRequestSeq;data=await repo.load(obra);try{localStorage.setItem(`pf-obra-${user.id}`,id);}catch{}aptId='';floor='';pendingService='';page='apartamentos';fiscalFilters={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};fiscalResult=null;fiscalAnswer='';reportFilters={tipo:'pavimento',pavimento:'',servico:'',status:'',responsavel:''};clearPdf();render();}
   async function start(){root.innerHTML='<main class="welcome"><p role="status">Carregando sua sessão…</p></main>';try{const invited=await repo.passwordLink?.();if(invited){user=invited;data=null;passwordScreen();return;}user=await repo.session();if(!user){loginScreen();return;}await loadObras();let previous;try{previous=localStorage.getItem(`pf-obra-${user.id}`);}catch{}if(obras.some(o=>o.id===previous))await chooseObra(previous);else obraScreen();}catch(e){root.innerHTML=`<main class="welcome"><h1>Não foi possível carregar</h1><p role="alert">${esc(errorText(e))}</p>${button('Tentar novamente','retry','refresh','','primary')}${button('Voltar para entrar','auth-login','','','text-button')}</main>`;}}
   function header(){return `<header class="header"><div class="header-inner"><button class="brand" data-action="obras" aria-label="Selecionar obra"><span class="brand-mark">${icon('building')}</span><span><small>PENTE FINO</small><strong>${esc(data.obra.nome)}</strong></span></button>${button('','reload','refresh','aria-label="Sincronizar"','icon-button')}</div></header>`;}
   function nav(){return `<nav class="bottom-nav" aria-label="Navegação principal">${[['apartamentos','Apartamentos','building'],['pendencias','Pendências','alert'],['fiscal','Fiscal','eye'],['relatorios','Relatórios','report'],['ajustes','Ajustes','settings']].map(([p,label,ico])=>`<button type="button" data-action="page" data-page="${p}" ${page===p?'aria-current="page"':''}>${icon(ico)}<span>${label}</span></button>`).join('')}</nav>`;}
@@ -133,7 +133,7 @@ export async function mountApp(repo,root) {
     if(!data||!user||(background&&(syncing||editing())))return;
     const workId=data.obra.id,userId=user.id;syncing=true;
     try {const next=await repo.load(data.obra);if(data?.obra.id!==workId||user?.id!==userId||(background&&editing()))return;
-      const changed=JSON.stringify(data)!==JSON.stringify(next);data=next;if(changed){fiscalResult=null;fiscalAnswer='';}if(changed||!background)render();
+      const changed=JSON.stringify(data)!==JSON.stringify(next);data=next;if(changed){++fiscalRequestSeq;fiscalResult=null;fiscalAnswer='';}if(changed||!background)render();
     } catch(e){if(e.code==='WORK_ACCESS'&&data?.obra.id===workId){data=null;clearPdf();await loadObras();obraScreen();notify(errorText(e),true);}else throw e;}
     finally{syncing=false;}
   }
@@ -179,8 +179,21 @@ export async function mountApp(repo,root) {
   root.addEventListener('click',onClick);dialog.addEventListener('click',onClick);
   async function onSubmit(e){const form=e.target.closest('form[data-form]');if(!form)return;e.preventDefault();const values=Object.fromEntries(new FormData(form));await run(form,async()=>{
     const type=form.dataset.form;
-    if(type==='fiscal-question'){const request=interpretAgentQuestion(data,values.pergunta);fiscalFilters=request.filtros;fiscalResult=await fiscalAgent.execute(data.obra.id,request);fiscalAnswer=formatFiscalAnswer(values.pergunta,fiscalResult);render();return;}
-    if(type==='fiscal'){fiscalAnswer='';fiscalFilters={pavimento:values.pavimento||'',apartamento:values.apartamento||'',servico:values.servico||'',ambiente:values.ambiente||'',status:values.status||''};fiscalResult=await fiscalAgent.execute(data.obra.id,{acao:'CONSULTAR_OCORRENCIAS',filtros:fiscalFilters});render();return;}
+    if(type==='fiscal-question'){
+      const request=interpretAgentQuestion(data,values.pergunta);
+      const obraId=data.obra.id,userId=user.id,seq=++fiscalRequestSeq;
+      const result=await fiscalAgent.execute(obraId,request);
+      if(seq!==fiscalRequestSeq||data?.obra.id!==obraId||user?.id!==userId)return;
+      const answer=formatFiscalAnswer(values.pergunta,result);
+      fiscalFilters=request.filtros;fiscalResult=result;fiscalAnswer=answer;render();return;
+    }
+    if(type==='fiscal'){
+      const filters={pavimento:values.pavimento||'',apartamento:values.apartamento||'',servico:values.servico||'',ambiente:values.ambiente||'',status:values.status||''};
+      const obraId=data.obra.id,userId=user.id,seq=++fiscalRequestSeq;
+      const result=await fiscalAgent.execute(obraId,{acao:'CONSULTAR_OCORRENCIAS',filtros:filters});
+      if(seq!==fiscalRequestSeq||data?.obra.id!==obraId||user?.id!==userId)return;
+      fiscalFilters=filters;fiscalResult=result;fiscalAnswer='';render();return;
+    }
     if(type==='recover'){await repo.resetPassword(values.email);form.querySelector('[data-recovery-message]').textContent='Se houver uma conta para este e-mail, você receberá o link para definir uma nova senha.';}
     if(type==='password'){try{user=await repo.setPassword(values.password,values.confirmation);}finally{form.querySelectorAll('input[type="password"]').forEach(input=>input.value='');}history.replaceState(null,'',new URL('./',location.href).pathname);await start();}
     if(type==='login'){user=await repo.login(values.email.trim(),values.password);await loadObras();obraScreen();}
