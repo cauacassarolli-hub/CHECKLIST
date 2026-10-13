@@ -174,7 +174,7 @@ export function interpretAgentQuestion(data,question=''){
   }
   filtros.servico=findCatalogMention(text,data.servicos);
   filtros.ambiente=findCatalogMention(text,data.ambientes);
-  if(/\bpendencias?\b|\bpendentes?\b/.test(text))filtros.status='pendente';
+  if(/\bpendencias?\b|\bpendentes?\b/.test(text) && !/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text))filtros.status='pendente';
   else if(/\bem correcao\b/.test(text))filtros.status='correcao';
   else if(/\bcorrigid[ao]s?\b/.test(text))filtros.status='corrigido';
   else if(/\bconformes?\b/.test(text))filtros.status='conforme';
