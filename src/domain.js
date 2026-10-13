@@ -157,6 +157,7 @@ export function interpretAgentQuestion(data,question=''){
   if(/\b(cri(?:ar|e|a)|cadastr\w*|registr\w*|alter\w*|edit\w*|exclu\w*|apag\w*|delet\w*|remov\w*|envi\w*|mand\w*|aprov\w*|resolv\w*|corrij\w*|corrig\w*|finaliz\w*)\b/.test(text))
     throw new Error('O Fiscal está em modo somente leitura. Esta solicitação tenta alterar dados.');
 
+  const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text)||/\b(qual|quais)\b.*\bservic\w*\b.*\bmais\b|\bservic\w*\b.*\bmais\b/.test(text);
   const filtros={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};
   const floorMatch=text.match(/(?:pavimento|andar)\s+(?:do\s+|da\s+)?([\wºª-]+)/i);
   if(floorMatch){
@@ -174,11 +175,10 @@ export function interpretAgentQuestion(data,question=''){
   }
   filtros.servico=findCatalogMention(text,data.servicos);
   filtros.ambiente=findCatalogMention(text,data.ambientes);
-  if(/\bpendencias?\b|\bpendentes?\b/.test(text) && !/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text))filtros.status='pendente';
+  if(/\bpendencias?\b|\bpendentes?\b/.test(text) && !asksSummary)filtros.status='pendente';
   else if(/\bem correcao\b/.test(text))filtros.status='correcao';
   else if(/\bcorrigid[ao]s?\b/.test(text))filtros.status='corrigido';
   else if(/\bconformes?\b/.test(text))filtros.status='conforme';
 
-  const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text)||/\b(qual|quais)\b.*\bservic\w*\b.*\bmais\b|\bservic\w*\b.*\bmais\b/.test(text);
   return {acao:asksSummary?'CONSULTAR_RESUMO':'CONSULTAR_OCORRENCIAS',filtros};
 }
