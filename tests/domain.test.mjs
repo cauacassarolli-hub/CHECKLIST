@@ -126,3 +126,13 @@ test('Fiscal reconhece pergunta por serviço com mais pendências como resumo',(
   assert.equal(r.acao,'CONSULTAR_RESUMO');
   assert.equal(r.filtros.status,'');
 });
+
+test('Fiscal mantém o ranking abrangente e a listagem de pendentes restrita',()=>{
+  const d=data();
+  const rank=interpretAgentQuestion(d,'Qual serviço tem mais pendências?');
+  const list=interpretAgentQuestion(d,'Quais pendências de pintura existem?');
+  assert.equal(rank.acao,'CONSULTAR_RESUMO');
+  assert.equal(rank.filtros.status,'');
+  assert.equal(list.acao,'CONSULTAR_OCORRENCIAS');
+  assert.equal(list.filtros.status,'pendente');
+});
