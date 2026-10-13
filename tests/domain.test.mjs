@@ -120,3 +120,9 @@ test('Resumo de pendencias nao exclui ocorrencias em correcao',()=>{
   assert.equal(r.acao,'CONSULTAR_RESUMO');
   assert.equal(r.filtros.status,'');
 });
+
+test('Fiscal reconhece pergunta por serviço com mais pendências como resumo',()=>{
+  const r=interpretAgentQuestion(data(),'Qual serviço tem mais pendências?');
+  assert.equal(r.acao,'CONSULTAR_RESUMO');
+  assert.equal(r.filtros.status,'');
+});
