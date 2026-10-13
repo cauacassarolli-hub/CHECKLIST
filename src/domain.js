@@ -143,8 +143,16 @@ export const isOverdue=(item,today=new Date())=>!!item.prazo && isOpen(item) && 
 const normalizeAgentText=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
 const findCatalogMention=(text,rows=[])=>{
   const normalized=normalizeAgentText(text);
-  return rows.find(row=>normalized.includes(normalizeAgentText(row.nome)))?.nome||'';
+  // Prefere o nome completo para não confundir, por exemplo, "Porta" e "Porta de madeira".
+  const ordered=[...rows].filter(row=>row?.nome).sort((a,b)=>b.nome.length-a.nome.length);
+  return ordered.find(row=>{
+    const name=normalizeAgentText(row.nome),index=normalized.indexOf(name);
+    if(index<0)return false;
+    const before=normalized[index-1]||'',after=normalized[index+name.length]||'';
+    return !/[a-z0-9]/i.test(before)&&!/[a-z0-9]/i.test(after);
+  })?.nome||'';
 };
+const normalizeFloor=value=>normalizeAgentText(value).replace(/[ºª°]/g,'').replace(/(\d)[oa]$/,'$1');
 
 /**
  * Interpreta apenas consultas de leitura previsíveis.
@@ -159,19 +167,23 @@ export function interpretAgentQuestion(data,question=''){
 
   const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text)||/\b(qual|quais)\b.*\bservic\w*\b.*\bmais\b|\bservic\w*\b.*\bmais\b/.test(text);
   const filtros={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};
-  const floorMatch=text.match(/(?:pavimento|andar)\s+(?:do\s+|da\s+)?([\wºª-]+)/i);
+  const floorMatch=text.match(/\b(?:pavimento|andar)\s+(?:(?:do|da)\s+)?([\wºª°-]+)/i)
+    ||text.match(/\b(?:no|do|da|de)\s+(\d+[ºª°oa]?)\s+(?:pavimento|andar)\b/i);
   if(floorMatch){
-    const wanted=normalizeAgentText(floorMatch[1]).replace(/(?:o|a)$/,'');
-    const floor=(data.apartamentos||[]).map(a=>a.pavimento).find(v=>normalizeAgentText(v).replace(/(?:o|a)$/,'')===wanted);
-    if(!floor)throw new Error('Pavimento não encontrado nesta obra.');
-    filtros.pavimento=floor;
+    const wanted=normalizeFloor(floorMatch[1]);
+    const floors=[...new Set((data.apartamentos||[]).map(a=>a.pavimento).filter(Boolean))];
+    const matches=floors.filter(v=>normalizeFloor(v)===wanted);
+    if(!matches.length)throw new Error('Pavimento não encontrado nesta obra.');
+    if(matches.length>1)throw new Error('Pavimento ambíguo. Especifique o pavimento cadastrado.');
+    filtros.pavimento=matches[0];
   }
-  const aptMatch=text.match(/(?:apto|apartamento)\s*([\w-]+)/i);
+  const aptMatch=text.match(/\b(?:apto|apartamento)\s*([\w-]+)/i);
   if(aptMatch){
     const wanted=normalizeAgentText(aptMatch[1]);
-    const apt=(data.apartamentos||[]).find(a=>normalizeAgentText(a.apartamento)===wanted && (!filtros.pavimento||a.pavimento===filtros.pavimento));
-    if(!apt)throw new Error('Apartamento não encontrado nesta obra ou no pavimento informado.');
-    filtros.apartamento=apt.apartamento;
+    const matches=(data.apartamentos||[]).filter(a=>normalizeAgentText(a.apartamento)===wanted && (!filtros.pavimento||a.pavimento===filtros.pavimento));
+    if(!matches.length)throw new Error('Apartamento não encontrado nesta obra ou no pavimento informado.');
+    if(matches.length>1)throw new Error('Apartamento ambíguo. Informe o pavimento ou a unidade completa.');
+    filtros.apartamento=matches[0].apartamento;
   }
   filtros.servico=findCatalogMention(text,data.servicos);
   filtros.ambiente=findCatalogMention(text,data.ambientes);
