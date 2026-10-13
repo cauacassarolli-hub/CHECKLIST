@@ -170,6 +170,13 @@ export function interpretAgentQuestion(data,question=''){
   if(/\b(?:cri(?:ar|e|a|em)|cadastr(?:ar|e|a|em)|registr(?:ar|e|a|em)|alter(?:ar|e|a|em)|edit(?:ar|e|a|em)|exclu(?:ir|a|am|i)|apag(?:ar|ue|a|uem)|delet(?:ar|e|a|em)|remov(?:er|a|e|am)|envi(?:ar|e|a|em)|mand(?:ar|e|a|em)|aprov(?:ar|e|a|em)|resolv(?:er|a|e|am)|corrig(?:ir|e)|corrij(?:a|am)|finaliz(?:ar|e|a|em)|adicion(?:ar|e|a|em)|atualiz(?:ar|e|a|em)|mud(?:ar|e|a|em)|modific(?:ar|ar|ou|a|am)|liber(?:ar|e|a|em)|conclu(?:ir|a|i|am)|inser(?:ir|a|e|em)|marc(?:ar|a|ou|am)|notific(?:ar|e|a|am))\b/.test(text))
     throw new Error('O Fiscal está em modo somente leitura. Esta solicitação tenta alterar dados.');
 
+  // Comandos de relatório e exportação ainda não foram habilitados.
+  if(/\b(?:ger(?:ar|e|a|em)|export(?:ar|e|a|em)|baix(?:ar|e|a|em)|compartilh(?:ar|e|a|em)|imprim(?:ir|a|e|am)|fotograf(?:ar|e|a|em)|anex(?:ar|e|a|em))\b/.test(text))
+    throw new Error('Essa ação ainda não está disponível no Fiscal. Use as consultas e resumos somente leitura.');
+  // Perguntas fora do escopo não devem ser convertidas em listagem genérica da obra.
+  const readIntent=/\b(qual|quais|quanto|quantos|quantas|mostr\w*|list\w*|consult\w*|resumo|total|exib\w*|exist\w*|ocorrenc\w*|pendenc\w*|servic\w*|pavimento|andar|apartamento|apto|status|corrigid\w*|conform\w*)\b/.test(text);
+  if(!readIntent)throw new Error('Pergunta não reconhecida. Peça ocorrências, pendências ou um resumo da obra.');
+
   const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text)||/\b(qual|quais)\b.*\bservic\w*\b.*\bmais\b|\bservic\w*\b.*\bmais\b/.test(text);
   const filtros={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};
   const floorMatch=text.match(/\b(?:pavimento|andar)\s+(?:(?:do|da)\s+)?([\wºª°-]+)/i)
@@ -192,6 +199,10 @@ export function interpretAgentQuestion(data,question=''){
   }
   filtros.servico=findCatalogMention(text,data.servicos);
   filtros.ambiente=findCatalogMention(text,data.ambientes);
+  if(/\bservic\w*\s+(?:de|do|da)\s+[^\s?!,.]+/.test(text)&&!filtros.servico)
+    throw new Error('Serviço não cadastrado nesta obra.');
+  if(/\bambient\w*\s+(?:de|do|da)\s+[^\s?!,.]+/.test(text)&&!filtros.ambiente)
+    throw new Error('Ambiente não cadastrado nesta obra.');
   if(/\bem correcao\b/.test(text))filtros.status='correcao';
   else if(/\bcorrigid[ao]s?\b/.test(text))filtros.status='corrigido';
   else if(/\bconformes?\b/.test(text))filtros.status='conforme';
