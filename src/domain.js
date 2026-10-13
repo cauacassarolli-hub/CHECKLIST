@@ -175,7 +175,8 @@ export function interpretAgentQuestion(data,question=''){
     throw new Error('Essa ação ainda não está disponível no Fiscal. Use as consultas e resumos somente leitura.');
   // Perguntas fora do escopo não devem ser convertidas em listagem genérica da obra.
   const readIntent=/\b(qual|quais|quanto|quantos|quantas|mostr\w*|list\w*|consult\w*|resumo|total|exib\w*|exist\w*|ocorrenc\w*|pendenc\w*|servic\w*|pavimento|andar|apartamento|apto|status|corrigid\w*|conform\w*)\b/.test(text);
-  if(!readIntent)throw new Error('Pergunta não reconhecida. Peça ocorrências, pendências ou um resumo da obra.');
+  const knownSubject=/\b(?:ocorrenc\w*|pendenc\w*|servic\w*|paviment\w*|andar\w*|apartament\w*|apto\w*|resumo\w*|status\w*|corrigid\w*|conform\w*|correcao|registro\w*)\b/.test(text);
+  if(!readIntent||!knownSubject)throw new Error('Pergunta não reconhecida. Peça ocorrências, pendências ou um resumo da obra.');
 
   const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text)||/\b(qual|quais)\b.*\bservic\w*\b.*\bmais\b|\bservic\w*\b.*\bmais\b/.test(text);
   const filtros={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};
