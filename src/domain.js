@@ -146,10 +146,15 @@ const findCatalogMention=(text,rows=[])=>{
   // Prefere o nome completo para não confundir, por exemplo, "Porta" e "Porta de madeira".
   const ordered=[...rows].filter(row=>row?.nome).sort((a,b)=>b.nome.length-a.nome.length);
   return ordered.find(row=>{
-    const name=normalizeAgentText(row.nome),index=normalized.indexOf(name);
-    if(index<0)return false;
-    const before=normalized[index-1]||'',after=normalized[index+name.length]||'';
-    return !/[a-z0-9]/i.test(before)&&!/[a-z0-9]/i.test(after);
+    const name=normalizeAgentText(row.nome);
+    if(!name)return false;
+    let from=0,index;
+    while((index=normalized.indexOf(name,from))>=0){
+      const before=normalized[index-1]||'',after=normalized[index+name.length]||'';
+      if(!/[a-z0-9]/i.test(before)&&!/[a-z0-9]/i.test(after))return true;
+      from=index+name.length;
+    }
+    return false;
   })?.nome||'';
 };
 const normalizeFloor=value=>normalizeAgentText(value).replace(/[ºª°]/g,'').replace(/(\d)[oa]$/,'$1');
@@ -187,10 +192,11 @@ export function interpretAgentQuestion(data,question=''){
   }
   filtros.servico=findCatalogMention(text,data.servicos);
   filtros.ambiente=findCatalogMention(text,data.ambientes);
-  if(/\bpendencias?\b|\bpendentes?\b/.test(text) && !asksSummary)filtros.status='pendente';
-  else if(/\bem correcao\b/.test(text))filtros.status='correcao';
+  if(/\bem correcao\b/.test(text))filtros.status='correcao';
   else if(/\bcorrigid[ao]s?\b/.test(text))filtros.status='corrigido';
   else if(/\bconformes?\b/.test(text))filtros.status='conforme';
+  else if(/\bpendentes?\b/.test(text) && !asksSummary)filtros.status='pendente';
+  else if(/\bpendencias?\b/.test(text) && !asksSummary)filtros.status='pendente';
 
   return {acao:asksSummary?'CONSULTAR_RESUMO':'CONSULTAR_OCORRENCIAS',filtros};
 }
