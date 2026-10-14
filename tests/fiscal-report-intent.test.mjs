@@ -21,7 +21,7 @@ test('Fiscal identifica pedido de PDF mas não o confunde com uma consulta',()=>
 
 test('Fiscal prepara relatório do pavimento, sem gerar arquivo',()=>{
   const filters=interpretFiscalReportRequest(data(),'Gere um relatório do 5° pavimento');
-  assert.deepEqual(filters,{tipo:'pavimento',pavimento:'5º',servico:'',status:'',responsavel:''});
+  assert.deepEqual(filters,{tipo:'pavimento',pavimento:'5º',apartamento_id:'',servico:'',status:'',responsavel:''});
   const model=buildReportModel(data(),filters);
   assert.equal(model.tipo,'pavimento');
   assert.equal(model.apartments.length,1);
@@ -56,10 +56,6 @@ test('Fiscal permite prévia de finalização, mas exige pavimento',()=>{
 });
 
 test('Fiscal recusa filtros não suportados sem produzir relatório amplo',()=>{
-  for(const q of [
-    'Gere um relatório do apartamento 501',
-    'Gere um relatório das ocorrências de pintura do apto 501'
-  ])assert.throws(()=>interpretFiscalReportRequest(data(),q),/apartamento ainda não estão disponíveis/);
   assert.throws(()=>interpretFiscalReportRequest(data(),'Relatório de pintura do pavimento 99'),/Pavimento não encontrado/);
   assert.throws(()=>interpretFiscalReportRequest(data(),'Relatório do serviço de concreto'),/Serviço não cadastrado/);
   assert.throws(()=>interpretFiscalReportRequest(data(),'Gere um relatório do ambiente de garagem'),/não é suportado/);
@@ -67,4 +63,39 @@ test('Fiscal recusa filtros não suportados sem produzir relatório amplo',()=>{
   assert.throws(()=>interpretFiscalReportRequest(data(),'Relatório'),/Informe o pavimento/);
   assert.throws(()=>interpretFiscalReportRequest(data(),'Relatório e envie por WhatsApp'),/não envia nem exporta/);
   assert.throws(()=>interpretFiscalReportRequest(data(),'Quantas pendências?'),/Peça um relatório/);
+});
+
+test('Fiscal gera proposta de PDF fotográfico isolada por apartamento e serviço',()=>{
+  const filters=interpretFiscalReportRequest(data(),'Gere um relatório das ocorrências de pintura do apartamento 501');
+  assert.equal(filters.tipo,'apartamento');
+  assert.equal(filters.pavimento,'5º');
+  assert.equal(filters.apartamento_id,'a');
+  assert.equal(filters.servico,'Pintura');
+  const model=buildReportModel(data(),filters);
+  assert.equal(model.apartments.length,1);
+  assert.equal(model.apartments[0].id,'a');
+  assert.deepEqual(model.items.map(i=>i.id),['p','c']);
+  assert.match(model.titulo,/Apto 501.*Pintura/);
+});
+
+test('Fiscal filtra pendências por apartamento incluindo itens em correção',()=>{
+  const filters=interpretFiscalReportRequest(data(),'Relatório de pendências do apto 501');
+  assert.equal(filters.tipo,'pendencias');
+  assert.equal(filters.apartamento_id,'a');
+  const model=buildReportModel(data(),filters);
+  assert.deepEqual(model.items.map(i=>i.status),['pendente','correcao']);
+});
+
+test('Fiscal não mistura apartamentos de mesmo número e pavimentos diferentes',()=>{
+  const d=data();
+  d.apartamentos.push({id:'duplicado',pavimento:'7º',apartamento:'501'});
+  d.itens.push({id:'outro',apartamento_id:'duplicado',status:'pendente',servico:'Pintura'});
+  assert.throws(()=>interpretFiscalReportRequest(d,'Relatório do apartamento 501'),/Apartamento ambíguo/);
+  const filters=interpretFiscalReportRequest(d,'Relatório do apartamento 501 do 5º pavimento');
+  assert.equal(filters.apartamento_id,'a');
+  const model=buildReportModel(d,filters);
+  assert.deepEqual(model.items.map(i=>i.id),['p','c']);
+  assert.throws(()=>buildReportModel(d,{tipo:'apartamento',apartamento_id:'duplicado',pavimento:'5º'}),/Apartamento não encontrado/);
+  assert.throws(()=>buildReportModel(d,{tipo:'apartamento',apartamento_id:''}),/Selecione um apartamento/);
+  assert.throws(()=>buildReportModel(d,{tipo:'pavimento',apartamento_id:'a',pavimento:'5º'}),/não é compatível/);
 });
