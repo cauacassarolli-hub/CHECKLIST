@@ -151,7 +151,7 @@ export function buildFiscalExcel(obra,result){
     ['Apartamento',filters.apartamento||'Todos'],
     ['Serviço',filters.servico||'Todos'],
     ['Ambiente',filters.ambiente||'Todos'],
-    ['Status',ITEM_STATUS[filters.status]||filters.status||'Todos'],
+    ['Status',filters.status==='abertas'?'Abertas (pendentes e em correção)':ITEM_STATUS[filters.status]||filters.status||'Todos'],
     ['',''],...counts,['',''],['SERVIÇOS','Ocorrências abertas']
   ];
   if(!Array.isArray(summary.servicos))throw new Error('Ranking de serviços não informado pela consulta.');
