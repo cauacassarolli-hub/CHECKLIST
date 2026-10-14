@@ -24,6 +24,14 @@ try {
   await db.exec(await fs.readFile(new URL('../supabase/migrations/20260924094954_pente_fino_convites_auth.sql',import.meta.url),'utf8'));
   const invites=await db.exec(await fs.readFile(new URL('./invites.sql',import.meta.url),'utf8'));
   console.log('invites.sql: '+invites.at(-1).rows[0].result);
+  // Apply only the preference segment from the shipped migration to verify its exact RLS policies.
+  const foundation=await fs.readFile(new URL('../supabase/migrations/20261006205000_fiscal_qualidade_fundacao.sql',import.meta.url),'utf8');
+  const start=foundation.indexOf('create table if not exists public.chk_preferencias_notificacao');
+  const end=foundation.indexOf('-- A funcao e usada internamente',start);
+  if(start<0||end<0)throw new Error('Notification migration segment not found.');
+  await db.exec(foundation.slice(start,end));
+  const notifications=await db.exec(await fs.readFile(new URL('./notifications.sql',import.meta.url),'utf8'));
+  console.log('notifications.sql: '+notifications.at(-1).rows[0].result);
   assert.equal((await db.query('select count(*)::int as n from auth.users')).rows[0].n,1,'Test Auth fixtures rolled back');
   assert.equal((await db.query('select count(*)::int as n from chk_membros_obra')).rows[0].n,0,'No production membership seeds');
 } catch(e) {console.error(e.message);if(e.where)console.error(e.where);process.exitCode=1;}
