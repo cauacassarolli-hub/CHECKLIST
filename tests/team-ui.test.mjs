@@ -5,7 +5,7 @@ import {mountApp} from '../src/app.js';
 import {drafts} from '../src/photos.js';
 
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-async function setup(userId='owner',queryOccurrencesOverride=null) {
+async function setup(userId='owner',queryOccurrencesOverride=null,simulationOverride=null) {
   const {window,document}=parseHTML('<html><body><div id="app"></div></body></html>');
   globalThis.window=window;globalThis.document=document;
   window.HTMLElement.prototype.scrollIntoView=()=>{};
@@ -21,10 +21,18 @@ async function setup(userId='owner',queryOccurrencesOverride=null) {
     itens:[{id:'i',user_id:'owner',obra_id:'w',apartamento_id:'a',versao:1,ambiente:'Sala',servico:'Pintura',status:'pendente',criado_por_nome:'Autor original',atualizado_por_nome:'Colega da obra',foto_antes_path:'owner/w/a/i/a.jpg',observacao:'Verificar pintura'}],
     relatorios:[],membros_obra:[{id:'m',user_id:'member',obra_id:'w',nome:'Colega da obra',ativo:true}],
     convites_obra:[],atividades:[{id:'log',obra_id:'w',entidade:'chk_itens',acao:'UPDATE',autor_nome:'Colega da obra',created_at:'2026-09-23T10:00:00Z',detalhes:{apartamento_id:'a',servico:'Pintura',status:'pendente'}}]};
-  let offline=false,savedNotification=null,savedEmailConsent=null,emailConsentWrites=0;
+  let offline=false,savedNotification=null,savedEmailConsent=null,emailConsentWrites=0,simulationCalls=0;
   const repo={session:async()=>user,acceptInvites:async()=>0,list:async()=>[data.obra],load:async()=>structuredClone(data),
     getNotificationPreferences:async obraId=>{assert.equal(obraId,'w');return savedNotification;},
     saveNotificationPreferences:async(obraId,pref)=>{assert.equal(obraId,'w');savedNotification={...pref,horario:pref.horario+':00'};return savedNotification;},
+    simulateEmailDigest:async obraId=>{
+      assert.equal(obraId,'w');
+      simulationCalls++;
+      return simulationOverride
+        ? simulationOverride(obraId)
+        : {apto_para_preparar:false,motivo:'email_nao_confirmado',
+           envio_executado:false,reserva_criada:false};
+    },
     getEmailConsent:async obraId=>{assert.equal(obraId,'w');return savedEmailConsent;},
     saveEmailConsent:async(obraId,autorizado)=>{assert.equal(obraId,'w');assert.equal(typeof autorizado,'boolean');emailConsentWrites++;savedEmailConsent={
       autorizado,autorizado_em:autorizado?'2026-10-14T21:00:00Z':savedEmailConsent?.autorizado_em||null,
@@ -34,7 +42,7 @@ async function setup(userId='owner',queryOccurrencesOverride=null) {
     signedPhoto:async()=> 'about:blank',queryOccurrences:queryOccurrencesOverride||(async(obraId,filters)=>({filtros:filters,resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0,servicos:[{servico:'Pintura',abertas:1,total:1}]},ocorrencias:[{id:'i',pavimento:'1º',apartamento:'101',titulo:'Falha de pintura',servico:'Pintura',ambiente:'Sala',status:'pendente',descricao:'Verificar pintura',updated_at:'2026-09-23T10:00:00Z'}]}))};
   const app=await mountApp(repo,root);
   const click=async selector=>{const el=document.querySelector(selector);assert.ok(el,selector);el.dispatchEvent(new window.Event('click',{bubbles:true}));await tick();};
-  return{root,document,window,data,app,click,cache,savedNotification:()=>savedNotification,savedEmailConsent:()=>savedEmailConsent,emailConsentWrites:()=>emailConsentWrites,goOffline:()=>{offline=true;navigator.onLine=false;}};
+  return{root,document,window,data,app,click,cache,savedNotification:()=>savedNotification,savedEmailConsent:()=>savedEmailConsent,emailConsentWrites:()=>emailConsentWrites,simulationCalls:()=>simulationCalls,goOffline:()=>{offline=true;navigator.onLine=false;}};
 }
 test('Owner manages the team and sees who changed a shared record',async()=>{
   const ui=await setup();try{
@@ -411,5 +419,74 @@ test('Cancelar consentimento não grava autorização',async()=>{
     await ui.click('[data-action="email-consent-close"]');
     assert.equal(ui.emailConsentWrites(),0);
     assert.equal(ui.root.querySelector('form[data-form="email-consent"]'),null);
+  }finally{ui.app.stop();}
+});
+
+
+test('Simulação em Ajustes é iniciada somente por toque, sem reserva ou envio',async()=>{
+  const ui=await setup('member');
+  try {
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    assert.ok(ui.root.querySelector('[data-action="simulate-email"]'));
+    assert.equal(ui.simulationCalls(),0);
+    assert.equal(ui.root.querySelector('[data-email-simulation]'),null);
+    await ui.click('[data-action="simulate-email"]');
+    await tick();
+    const panel=ui.root.querySelector('[data-email-simulation]');
+    assert.ok(panel);
+    assert.match(panel.textContent,/Prévia ainda não apta/);
+    assert.match(panel.textContent,/e-mail da conta ainda não está confirmado/);
+    assert.match(panel.textContent,/Nenhum e-mail foi enviado e nenhuma entrega foi reservada/);
+    assert.equal(ui.simulationCalls(),1);
+    assert.equal(ui.root.querySelector('[data-action="send-email"]'),null);
+  }finally{ui.app.stop();}
+});
+
+test('Simulação aprovada não é apresentada como envio realizado',async()=>{
+  const ui=await setup('member',null,async()=>({
+    apto_para_preparar:true,motivo:'preparacao_possivel_em_simulacao',
+    horario:'07:00',data_local:'2026-10-14',fuso:'America/Sao_Paulo',
+    envio_executado:false,reserva_criada:false
+  }));
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="simulate-email"]');
+    await tick();
+    assert.match(ui.root.querySelector('[data-email-simulation]').textContent,/Prévia apta para preparação/);
+    assert.match(ui.root.textContent,/Nenhum e-mail foi enviado/);
+  }finally{ui.app.stop();}
+});
+
+test('Atraso de rede não mostra simulação depois da troca de obra',async()=>{
+  let resolve;
+  const ui=await setup('member',null,()=>new Promise(r=>{resolve=r;}));
+  try {
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="simulate-email"]');
+    assert.equal(typeof resolve,'function');
+    await ui.click('[data-action="obras"]');
+    resolve({apto_para_preparar:true,motivo:'preparacao_possivel_em_simulacao',
+      envio_executado:false,reserva_criada:false});
+    await tick();await tick();
+    assert.equal(ui.root.querySelector('[data-email-simulation]'),null);
+    assert.doesNotMatch(ui.root.textContent,/Prévia apta para preparação/);
+  }finally{ui.app.stop();}
+});
+
+test('Salvar nova autorização limpa uma simulação desatualizada',async()=>{
+  const ui=await setup('member');
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="simulate-email"]');
+    await tick();
+    assert.ok(ui.root.querySelector('[data-email-simulation]'));
+    await ui.click('[data-action="email-consent-open"]');
+    const form=ui.root.querySelector('form[data-form="email-consent"]');
+    form.querySelector('[name="autorizado"] option[value="false"]').removeAttribute('selected');
+    form.querySelector('[name="autorizado"] option[value="true"]').setAttribute('selected','');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.equal(ui.root.querySelector('[data-email-simulation]'),null);
+    assert.equal(ui.emailConsentWrites(),1);
   }finally{ui.app.stop();}
 });
