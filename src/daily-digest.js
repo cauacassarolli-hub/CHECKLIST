@@ -57,3 +57,39 @@ export function buildDailyDigest(obra,response,at=new Date()){
     enviado:false
   };
 }
+
+
+// Mensagem para cópia manual; nenhum destinatário, link ou envio é criado aqui.
+const oneLine=value=>String(value??'').replace(/[\u0000-\u001f\u007f]+/g,' ').replace(/\s+/g,' ').trim();
+export function formatDailyDigestMessage(digest){
+  if(!digest||!digest.obra_id||digest.enviado!==false||digest.timezone!==DAILY_DIGEST_TIMEZONE)
+    throw new Error('Gere uma prévia válida antes de preparar a mensagem.');
+  const counts=summarize(digest.resumo);
+  if(!Array.isArray(digest.principais_servicos))
+    throw new Error('Ranking inválido na mensagem do resumo.');
+  const extra=nonnegativeInteger(digest.outros_servicos,'outros_servicos');
+  const lines=[
+    'FISCAL DE QUALIDADE — RESUMO DAS PENDÊNCIAS',
+    'Obra: '+oneLine(digest.obra_nome),
+    'Consulta: '+oneLine(digest.gerado_em)+' (horário de Brasília)',
+    '',
+    'SITUAÇÃO ATUAL',
+    'Ocorrências registradas: '+counts.total,
+    'Pendências abertas: '+counts.abertas,
+    '• Pendentes: '+counts.pendentes,
+    '• Em correção: '+counts.em_correcao,
+    'Corrigidas: '+counts.corrigidas,
+    'Conformes: '+counts.conformes,
+    '',
+    'SERVIÇOS COM MAIS PENDÊNCIAS'
+  ];
+  if(!digest.principais_servicos.length)lines.push('Nenhuma pendência aberta.');
+  for(const service of digest.principais_servicos){
+    const count=nonnegativeInteger(service?.abertas,'servicos.abertas');
+    if(count===0)throw new Error('Serviço inválido no resumo diário.');
+    lines.push('• '+oneLine(service.servico)+': '+count+' aberta(s)');
+  }
+  if(extra)lines.push('Outros serviços com pendências: '+extra);
+  lines.push('','Observação: posição atual das ocorrências cadastradas. Não representa necessariamente alterações nas últimas 24 horas.');
+  return lines.join('\n');
+}

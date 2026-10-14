@@ -14,3 +14,6 @@
 /* Fiscal de Qualidade: cards de consulta não são interativos nem expõem ações de escrita. */
 .fiscal-record{cursor:default}.fiscal-metrics{margin-top:8px}.fiscal-record .record-info{min-height:150px}
 @media(max-width:600px){.bottom-nav span{font-size:9px}.fiscal-metrics span{font-size:10px}}
+
+/* Resumo copiável: mantém quebras de linha e não estoura a tela do iPhone. */
+.daily-digest-message{white-space:pre-wrap;overflow-wrap:anywhere;overflow:auto;max-height:300px;padding:14px;border:1px solid #d7dfe7;border-radius:12px;font-family:inherit;line-height:1.5;font-size:13px;user-select:text;-webkit-user-select:text}

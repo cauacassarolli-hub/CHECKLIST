@@ -311,3 +311,41 @@ test('Resumo diário incompleto exibe erro e não inventa totais zerados',async(
     assert.match(ui.root.textContent,/contagens de pendências não conferem/);
   }finally{ui.app.stop();}
 });
+
+
+test('Resumo diário só copia texto após toque explícito do usuário',async()=>{
+  const ui=await setup('member');
+  const copied=[];
+  navigator.clipboard={writeText:async value=>{copied.push(value);}};
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    assert.equal(ui.root.querySelector('[data-action="daily-copy"]'),null);
+    await ui.click('[data-action="daily-preview"]');
+    await tick();await tick();
+    const pre=ui.root.querySelector('[data-daily-message]');
+    assert.ok(pre,'Texto deve estar disponível para seleção manual');
+    assert.match(pre.textContent,/FISCAL DE QUALIDADE — RESUMO DAS PENDÊNCIAS/);
+    assert.equal(copied.length,0,'Nunca copiar automaticamente na consulta');
+    await ui.click('[data-action="daily-copy"]');
+    await tick();
+    assert.equal(copied.length,1);
+    assert.match(copied[0],/Pendências abertas: 1/);
+    assert.match(copied[0],/Pintura: 1 aberta\(s\)/);
+    assert.doesNotMatch(copied[0],/foto_antes_path|foto_depois_path/);
+    assert.equal(ui.root.querySelector('[data-action="send-email"]'),null);
+  }finally{ui.app.stop();}
+});
+
+test('Falha do clipboard não informa sucesso e permite seleção manual',async()=>{
+  const ui=await setup('member');
+  navigator.clipboard={writeText:async()=>{throw new Error('Permissão para copiar negada');}};
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="daily-preview"]');
+    await tick();await tick();
+    await ui.click('[data-action="daily-copy"]');
+    await tick();
+    assert.match(ui.root.textContent,/Permissão para copiar negada/);
+    assert.ok(ui.root.querySelector('[data-daily-message]'));
+  }finally{ui.app.stop();}
+});

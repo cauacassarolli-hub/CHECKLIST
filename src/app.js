@@ -5,7 +5,7 @@ import { generatePdf, pdfFilename, sharePdf, downloadPdf } from './pdf.js';
 import { icon } from './icons.js';
 import { FiscalAgentGateway } from './fiscal-agent.js';
 import { formatFiscalAnswer } from './fiscal-answer.js';
-import { buildDailyDigest } from './daily-digest.js';
+import { buildDailyDigest,formatDailyDigestMessage } from './daily-digest.js';
 import { downloadFiscalExcel } from './excel.js';
 import { isFiscalExcelRequest,interpretFiscalExcelRequest,prepareFiscalExcelResult } from './fiscal-excel-intent.js';
 import { isFiscalReportRequest, interpretFiscalReportRequest } from './fiscal-report-intent.js';
@@ -108,7 +108,7 @@ export async function mountApp(repo,root) {
     const ranking=digest?.principais_servicos?.length
       ?`<h3>Serviços com mais pendências abertas</h3><ol class="catalog-list">${digest.principais_servicos.map(s=>`<li><span>${esc(s.servico)}</span><strong>${s.abertas}</strong></li>`).join('')}</ol>${digest.outros_servicos?`<p class="small muted">Outros ${digest.outros_servicos} serviço(s) com pendências.</p>`:''}`
       :summary?'<p class="small muted">Nenhum serviço com pendência aberta nesta obra.</p>':'';
-    return `<section class="panel" aria-label="Prévia do resumo diário"><div class="section-head"><div><h2>Resumo diário · prévia</h2><p class="small muted">Retrato atual de toda a obra, consultado com as permissões da sua conta.</p></div></div>${button(digest?'Atualizar prévia':'Visualizar resumo da obra','daily-preview','refresh','','primary')}${digest?`<div data-daily-preview role="status"><p class="small muted">Obra: <strong>${esc(digest.obra_nome)}</strong> · Consulta: ${esc(digest.gerado_em)} (Brasília)</p>${metrics}${ranking}<p class="small muted">${esc(digest.informativo)} Nenhuma mensagem foi enviada.</p></div>`:''}</section>`;
+    return `<section class="panel" aria-label="Prévia do resumo diário"><div class="section-head"><div><h2>Resumo diário · prévia</h2><p class="small muted">Retrato atual de toda a obra, consultado com as permissões da sua conta.</p></div></div>${button(digest?'Atualizar prévia':'Visualizar resumo da obra','daily-preview','refresh','','primary')}${digest?`<div data-daily-preview role="status"><p class="small muted">Obra: <strong>${esc(digest.obra_nome)}</strong> · Consulta: ${esc(digest.gerado_em)} (Brasília)</p>${metrics}${ranking}<p class="small muted">${esc(digest.informativo)} Nenhuma mensagem foi enviada.</p><h3>Texto para compartilhar manualmente</h3><pre class="daily-digest-message" data-daily-message>${esc(formatDailyDigestMessage(digest))}</pre>${button('Copiar texto do resumo','daily-copy','','','text-button')}</div>`:''}</section>`;
   }
   function notificationPreferencesView(){
     const prefs=notificationPrefs||normalizeNotificationPreferences(null);
@@ -172,6 +172,15 @@ export async function mountApp(repo,root) {
     if(action==='select-obra'){await chooseObra(id);return;}
     if(action==='new-obra'){obraForm();return;}
     if(action==='edit-obra'){if(!owner())return;obraForm(data.obra);return;}
+    if(action==='daily-copy'){
+      if(!dailyPreview||!data?.obra||dailyPreview.obra_id!==data.obra.id)
+        throw new Error('Gere uma nova prévia da obra antes de copiar.');
+      if(typeof navigator.clipboard?.writeText!=='function')
+        throw new Error('Cópia automática indisponível neste navegador. Selecione o texto do resumo para copiar manualmente.');
+      await navigator.clipboard.writeText(formatDailyDigestMessage(dailyPreview));
+      notify('Texto do resumo copiado. Nenhuma mensagem foi enviada.');
+      return;
+    }
     if(action==='daily-preview'){
       const obraId=data?.obra?.id,userId=user?.id,seq=++dailyPreviewSeq;
       if(!obraId||!userId)throw new Error('Selecione uma obra para consultar.');
