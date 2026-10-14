@@ -15,3 +15,24 @@ jobs:
       - run: npm test
       - run: npm run test:rls
       - run: npm run build
+      - run: node scripts/verify-distribution.mjs
+      - name: Upload verified site
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy verified PWA to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
