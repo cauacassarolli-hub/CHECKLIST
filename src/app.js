@@ -10,6 +10,7 @@ import { downloadFiscalExcel } from './excel.js';
 import { isFiscalExcelRequest,interpretFiscalExcelRequest,prepareFiscalExcelResult } from './fiscal-excel-intent.js';
 import { isFiscalReportRequest, interpretFiscalReportRequest } from './fiscal-report-intent.js';
 import { normalizeNotificationPreferences,validateNotificationPreferences } from './notification-preferences.js';
+import { normalizeEmailConsent,validateEmailConsentChoice } from './email-consent.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const button=(text,action,ico='',extra='',cls='')=>`<button type="button" class="button ${cls}" data-action="${action}" ${extra}>${ico?icon(ico):''}${text}</button>`;
@@ -29,7 +30,7 @@ const errorText=e=> {
 
 export async function mountApp(repo,root) {
   const fiscalAgent=new FiscalAgentGateway(repo);
-  let user,data,obras=[],page='apartamentos',aptId='',floor='',query='',quick='',pendingService='',pendingApartment='',pendingRoom='',pendingStatus='',currentPdf=null,pdfUrl='',draft=null,draftKey='',draftTimer,processing=0,modalBusy=false,reportFilters={tipo:'pavimento',pavimento:'',apartamento_id:'',servico:'',status:'',responsavel:''},fiscalFilters={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''},fiscalResult=null,fiscalAnswer='',fiscalRequestSeq=0,reportSuggestedByFiscal=false,notificationPrefs=null,notificationPrefsOpen=false,dailyPreview=null,dailyPreviewSeq=0;
+  let user,data,obras=[],page='apartamentos',aptId='',floor='',query='',quick='',pendingService='',pendingApartment='',pendingRoom='',pendingStatus='',currentPdf=null,pdfUrl='',draft=null,draftKey='',draftTimer,processing=0,modalBusy=false,reportFilters={tipo:'pavimento',pavimento:'',apartamento_id:'',servico:'',status:'',responsavel:''},fiscalFilters={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''},fiscalResult=null,fiscalAnswer='',fiscalRequestSeq=0,reportSuggestedByFiscal=false,notificationPrefs=null,notificationPrefsOpen=false,dailyPreview=null,dailyPreviewSeq=0,emailConsent=null,emailConsentOpen=false,emailConsentSeq=0;
   const previewUrls=new Set();
   // Keep native file inputs in an ordinary modal to reduce iOS picker
   // integration risks. A physical iPhone must confirm the camera behavior.
@@ -75,7 +76,7 @@ export async function mountApp(repo,root) {
   function passwordScreen(){root.innerHTML=`<main class="welcome"><p class="eyebrow">PENTE FINO · ACESSO INDIVIDUAL</p><h1>Definir minha senha</h1><p>${esc(user.email)}</p><form data-form="password" class="panel login-form">${flashError}${field('Nova senha','password','','type="password" autocomplete="new-password" minlength="10" required')}${field('Repita a nova senha','confirmation','','type="password" autocomplete="new-password" minlength="10" required')}<p class="small">Use pelo menos 10 caracteres. Sua senha não será mostrada ao proprietário da obra.</p><button type="submit" class="button primary wide">Salvar senha e continuar</button></form>${button('Voltar para entrar','auth-login','','','text-button')}</main>`;}
   async function loadObras(){await repo.acceptInvites();obras=await repo.list('obras');}
   function obraScreen(){root.innerHTML=`<main class="container"><p class="eyebrow">PENTE FINO</p><div class="section-head"><h1>Suas obras</h1>${button('Sair','logout','logout')}</div><p class="muted">Escolha a obra que você vai vistoriar.</p>${flashError}<div class="cards">${obras.length?obras.map(o=>`<button class="project-card" data-action="select-obra" data-id="${o.id}">${icon('building')}<span><strong>${esc(o.nome)}</strong><small>${esc(o.empresa||'Obra residencial')}</small></span>${icon('arrow')}</button>`).join(''):empty('Sua primeira obra','Cadastre a obra para começar.')}</div>${button('Nova obra','new-obra','plus','','primary')}</main>`;}
-  async function chooseObra(id){const obra=obras.find(o=>o.id===id);if(!obra)throw new Error('Obra indisponível.');++fiscalRequestSeq;data=await repo.load(obra);try{localStorage.setItem(`pf-obra-${user.id}`,id);}catch{}aptId='';floor='';pendingService='';page='apartamentos';fiscalFilters={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};fiscalResult=null;fiscalAnswer='';reportFilters={tipo:'pavimento',pavimento:'',apartamento_id:'',servico:'',status:'',responsavel:''};reportSuggestedByFiscal=false;notificationPrefs=null;notificationPrefsOpen=false;++dailyPreviewSeq;dailyPreview=null;clearPdf();render();}
+  async function chooseObra(id){const obra=obras.find(o=>o.id===id);if(!obra)throw new Error('Obra indisponível.');++fiscalRequestSeq;data=await repo.load(obra);try{localStorage.setItem(`pf-obra-${user.id}`,id);}catch{}aptId='';floor='';pendingService='';page='apartamentos';fiscalFilters={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};fiscalResult=null;fiscalAnswer='';reportFilters={tipo:'pavimento',pavimento:'',apartamento_id:'',servico:'',status:'',responsavel:''};reportSuggestedByFiscal=false;notificationPrefs=null;notificationPrefsOpen=false;++emailConsentSeq;emailConsent=null;emailConsentOpen=false;++dailyPreviewSeq;dailyPreview=null;clearPdf();render();}
   async function start(){root.innerHTML='<main class="welcome"><p role="status">Carregando sua sessão…</p></main>';try{const invited=await repo.passwordLink?.();if(invited){user=invited;data=null;passwordScreen();return;}user=await repo.session();if(!user){loginScreen();return;}await loadObras();let previous;try{previous=localStorage.getItem(`pf-obra-${user.id}`);}catch{}if(obras.some(o=>o.id===previous))await chooseObra(previous);else obraScreen();}catch(e){root.innerHTML=`<main class="welcome"><h1>Não foi possível carregar</h1><p role="alert">${esc(errorText(e))}</p>${button('Tentar novamente','retry','refresh','','primary')}${button('Voltar para entrar','auth-login','','','text-button')}</main>`;}}
   function header(){return `<header class="header"><div class="header-inner"><button class="brand" data-action="obras" aria-label="Selecionar obra"><span class="brand-mark">${icon('building')}</span><span><small>PENTE FINO</small><strong>${esc(data.obra.nome)}</strong></span></button>${button('','reload','refresh','aria-label="Sincronizar"','icon-button')}</div></header>`;}
   function nav(){return `<nav class="bottom-nav" aria-label="Navegação principal">${[['apartamentos','Apartamentos','building'],['pendencias','Pendências','alert'],['fiscal','Fiscal','eye'],['relatorios','Relatórios','report'],['ajustes','Ajustes','settings']].map(([p,label,ico])=>`<button type="button" data-action="page" data-page="${p}" ${page===p?'aria-current="page"':''}>${icon(ico)}<span>${label}</span></button>`).join('')}</nav>`;}
@@ -100,7 +101,7 @@ export async function mountApp(repo,root) {
   function fiscalRecordCard(i){return `<article class="record-card fiscal-record"><div class="record-info"><p class="eyebrow">${esc(i.pavimento)} · Apto ${esc(i.apartamento)}</p><div class="record-head"><h3>${esc(i.titulo||i.servico||'Ocorrência')}</h3></div><p>${esc(i.servico)} · ${esc(i.ambiente)}</p>${badge(i.status)}${i.descricao?`<p class="note">${esc(i.descricao)}</p>`:''}<small>${dateTime(i.updated_at||i.created_at)}</small></div></article>`;}
   function reportsView(){const reportApartments=[...data.apartamentos].sort(sortApts).map(a=>[a.id,`${a.pavimento} · Apto ${a.apartamento}`]);return `<div class="section-head"><div><p class="eyebrow">REGISTROS QUE VIRAM DOCUMENTOS</p><h1>Relatórios</h1></div></div>${reportSuggestedByFiscal?'<div class="panel" role="status"><strong>Filtros preparados pelo Fiscal.</strong><p>Revise o tipo e os filtros abaixo. O PDF será gerado somente quando você tocar em “Gerar PDF”.</p></div>':''}<form class="panel" data-form="report">${flashError}<div class="two-columns">${select('Tipo de relatório','tipo',Object.entries(REPORT_TYPES),reportFilters.tipo,'','required')}${select('Pavimento','pavimento',floors(),reportFilters.pavimento||floor,'Todos / selecione')}</div><div class="report-apartment" ${['apartamento','pendencias'].includes(reportFilters.tipo)?'':'hidden'}>${select('Apartamento','apartamento_id',reportApartments,reportFilters.apartamento_id,'Selecione a unidade',reportFilters.tipo==='apartamento'?'required':'')}</div><div class="report-extra two-columns" ${['servico','pendencias','apartamento'].includes(reportFilters.tipo)?'':'hidden'}>${select('Serviço','servico',reportServices(),reportFilters.servico,'Todos / selecione')}${select('Status','status',Object.entries(ITEM_STATUS),reportFilters.status,'Padrão do relatório')}${field('Responsável','responsavel',reportFilters.responsavel,'placeholder="Filtrar por nome ou equipe"')}</div><button type="submit" class="button primary">${icon('report')}Gerar PDF</button><p role="status" data-progress class="small"></p></form>${currentPdf?pdfPanel():''}<div class="section-head"><h2>PDFs salvos <span class="count">${data.relatorios.length}</span></h2></div><div class="cards">${data.relatorios.length?data.relatorios.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))).map(r=>`<div class="saved-report"><div class="report-file">${icon('report')}</div><div><h3>${esc(r.titulo)}</h3><p>${dateTime(r.created_at)}</p>${authors(r)}${!r.pdf_path?'<p class="small">Relatório antigo sem PDF. Gere um novo documento.</p>':''}<div class="inline-actions">${r.pdf_path?button('Abrir / compartilhar','open-report','eye',`data-id="${r.id}"`):''}${mayDelete(r)?button('Excluir','delete-report','trash',`data-id="${r.id}"`,'danger text-button'):''}</div></div></div>`).join(''):empty('Nenhum PDF salvo','Gere um relatório e toque em “Salvar no app”.','report')}</div>`;}
   function pdfPanel(){return `<section class="panel pdf-panel"><p class="eyebrow">PDF PRONTO${currentPdf.saved?' · SALVO NO APP':''}</p><h2>${esc(currentPdf.title)}</h2>${currentPdf.model?.tipo==='finalizacao'?`<p class="muted">${currentPdf.model.summary.correctionTotal ? `Progresso das correções: ${currentPdf.model.summary.correctionPercent}%` : 'Sem registros para medir correções.'}</p><p class="${currentPdf.model.summary.notApproved?'banner':'muted'}">${esc(currentPdf.model.summary.conclusion)}</p>`:''}<p class="small">${(currentPdf.blob.size/1024).toFixed(0)} KB · Imagens incorporadas</p><div class="pdf-actions">${button('Visualizar','view-pdf','eye')}${button('Salvar no app','save-pdf','save',currentPdf.saved?'disabled':'','primary')}${button('Compartilhar','share-pdf','share')}${button('Baixar','download-pdf','download')}</div></section>`;}
-  function settingsView(){return `<div class="section-head"><div><p class="eyebrow">SUA OBRA E SUA EQUIPE</p><h1>Ajustes</h1></div></div><div class="panel"><div class="section-head"><div><h2>${esc(data.obra.nome)}</h2><p>${esc(data.obra.empresa||'')}</p><p class="small muted">${owner()?'Você é o proprietário desta obra.':'Você participa da equipe desta obra.'}</p></div>${owner()?button('Editar','edit-obra','edit'):''}</div>${button('Trocar obra','obras','building')}</div>${teamView()}${notificationPreferencesView()}${dailyDigestView()}${owner()?`<div class="two-columns">${catalog('ambientes','Ambientes','Ambiente')}${catalog('servicos','Serviços','Serviço')}${catalog('prioridades','Prioridades','Prioridade')}</div>`:'<p class="small muted">O proprietário gerencia apartamentos, ambientes, serviços e prioridades. A equipe registra e acompanha as vistorias.</p>'}${activityView()}<div class="panel account"><p class="small">${esc(user.email||'Sessão privada')}</p>${button('Sair da conta','logout','logout','','danger')}</div><p class="version">Pente Fino · versão 1.3.0</p>`;}
+  function settingsView(){return `<div class="section-head"><div><p class="eyebrow">SUA OBRA E SUA EQUIPE</p><h1>Ajustes</h1></div></div><div class="panel"><div class="section-head"><div><h2>${esc(data.obra.nome)}</h2><p>${esc(data.obra.empresa||'')}</p><p class="small muted">${owner()?'Você é o proprietário desta obra.':'Você participa da equipe desta obra.'}</p></div>${owner()?button('Editar','edit-obra','edit'):''}</div>${button('Trocar obra','obras','building')}</div>${teamView()}${notificationPreferencesView()}${emailConsentView()}${dailyDigestView()}${owner()?`<div class="two-columns">${catalog('ambientes','Ambientes','Ambiente')}${catalog('servicos','Serviços','Serviço')}${catalog('prioridades','Prioridades','Prioridade')}</div>`:'<p class="small muted">O proprietário gerencia apartamentos, ambientes, serviços e prioridades. A equipe registra e acompanha as vistorias.</p>'}${activityView()}<div class="panel account"><p class="small">${esc(user.email||'Sessão privada')}</p>${button('Sair da conta','logout','logout','','danger')}</div><p class="version">Pente Fino · versão 1.3.0</p>`;}
   function dailyDigestView(){
     const digest=dailyPreview;
     const summary=digest?.resumo;
@@ -109,6 +110,20 @@ export async function mountApp(repo,root) {
       ?`<h3>Serviços com mais pendências abertas</h3><ol class="catalog-list">${digest.principais_servicos.map(s=>`<li><span>${esc(s.servico)}</span><strong>${s.abertas}</strong></li>`).join('')}</ol>${digest.outros_servicos?`<p class="small muted">Outros ${digest.outros_servicos} serviço(s) com pendências.</p>`:''}`
       :summary?'<p class="small muted">Nenhum serviço com pendência aberta nesta obra.</p>':'';
     return `<section class="panel" aria-label="Prévia do resumo diário"><div class="section-head"><div><h2>Resumo diário · prévia</h2><p class="small muted">Retrato atual de toda a obra, consultado com as permissões da sua conta.</p></div></div>${button(digest?'Atualizar prévia':'Visualizar resumo da obra','daily-preview','refresh','','primary')}${digest?`<div data-daily-preview role="status"><p class="small muted">Obra: <strong>${esc(digest.obra_nome)}</strong> · Consulta: ${esc(digest.gerado_em)} (Brasília)</p>${metrics}${ranking}<p class="small muted">${esc(digest.informativo)} Nenhuma mensagem foi enviada.</p><h3>Texto para compartilhar manualmente</h3><pre class="daily-digest-message" data-daily-message>${esc(formatDailyDigestMessage(digest))}</pre>${button('Copiar texto do resumo','daily-copy','','','text-button')}</div>`:''}</section>`;
+  }
+  function emailConsentView(){
+    const consent=emailConsent;
+    const current=consent===null?'Ainda não consultado':consent.autorizado?'Autorizado para futuros e-mails':'Não autorizado';
+    return `<section class="panel" aria-label="Autorização para e-mail">
+      <h2>Resumos por e-mail · autorização separada</h2>
+      <p class="small muted">Esta permissão é individual e vale somente para esta obra. A preferência de horário não autoriza e-mails. Nenhuma mensagem automática está habilitada nesta etapa.</p>
+      <p class="small">Estado: <strong>${esc(current)}</strong></p>
+      ${emailConsentOpen?`<form data-form="email-consent">${flashError}
+        ${select('Desejo receber futuros resumos por e-mail','autorizado',[['false','Não autorizo'],['true','Autorizo']],String(consent?.autorizado===true),'','required')}
+        <p class="small muted">A autorização vale somente para o e-mail da sua conta autenticada. Você pode revogá-la a qualquer momento. O envio continuará desligado até validação do serviço de entrega.</p>
+        <div class="inline-actions"><button type="submit" class="button primary">Salvar autorização</button>${button('Cancelar','email-consent-close','close','','text-button')}</div>
+      </form>`:button('Conferir ou alterar autorização','email-consent-open','settings')}
+    </section>`;
   }
   function notificationPreferencesView(){
     const prefs=notificationPrefs||normalizeNotificationPreferences(null);
@@ -151,7 +166,7 @@ export async function mountApp(repo,root) {
     if(!data||!user||(background&&(syncing||editing())))return;
     const workId=data.obra.id,userId=user.id;syncing=true;
     try {const next=await repo.load(data.obra);if(data?.obra.id!==workId||user?.id!==userId||(background&&editing()))return;
-      const changed=JSON.stringify(data)!==JSON.stringify(next);data=next;if(changed){++fiscalRequestSeq;++dailyPreviewSeq;fiscalResult=null;fiscalAnswer='';dailyPreview=null;}if(changed||!background)render();
+      const changed=JSON.stringify(data)!==JSON.stringify(next);data=next;if(changed){++fiscalRequestSeq;++dailyPreviewSeq;++emailConsentSeq;fiscalResult=null;fiscalAnswer='';dailyPreview=null;emailConsent=null;emailConsentOpen=false;}if(changed||!background)render();
     } catch(e){if(e.code==='WORK_ACCESS'&&data?.obra.id===workId){data=null;clearPdf();await loadObras();obraScreen();notify(errorText(e),true);}else throw e;}
     finally{syncing=false;}
   }
@@ -167,8 +182,8 @@ export async function mountApp(repo,root) {
     if(action==='forgot-password'){forgotPasswordScreen(root.querySelector('[name="email"]')?.value||'');return;}
     if(action==='auth-login'){await repo.cancelPasswordSetup();user=null;data=null;clearPdf();history.replaceState(null,'',new URL('./',location.href).pathname);loginScreen();return;}
     if(action==='retry'){await start();return;}
-    if(action==='logout'){++dailyPreviewSeq;dailyPreview=null;await repo.logout();user=null;data=null;clearPdf();await drafts.clear().catch(()=>{});await closeModal();loginScreen();return;}
-    if(action==='obras'){++dailyPreviewSeq;dailyPreview=null;data=null;clearPdf();await loadObras();obraScreen();return;}
+    if(action==='logout'){++emailConsentSeq;emailConsent=null;emailConsentOpen=false;++dailyPreviewSeq;dailyPreview=null;await repo.logout();user=null;data=null;clearPdf();await drafts.clear().catch(()=>{});await closeModal();loginScreen();return;}
+    if(action==='obras'){++emailConsentSeq;emailConsent=null;emailConsentOpen=false;++dailyPreviewSeq;dailyPreview=null;data=null;clearPdf();await loadObras();obraScreen();return;}
     if(action==='select-obra'){await chooseObra(id);return;}
     if(action==='new-obra'){obraForm();return;}
     if(action==='edit-obra'){if(!owner())return;obraForm(data.obra);return;}
@@ -189,6 +204,16 @@ export async function mountApp(repo,root) {
       dailyPreview=buildDailyDigest(data.obra,response);
       render();return;
     }
+    if(action==='email-consent-open'){
+      const obraId=data?.obra?.id,userId=user?.id,seq=++emailConsentSeq;
+      if(!obraId||!userId)throw new Error('Selecione uma obra para configurar a autorização.');
+      const row=await repo.getEmailConsent(obraId);
+      if(seq!==emailConsentSeq||data?.obra?.id!==obraId||user?.id!==userId||page!=='ajustes')return;
+      emailConsent=normalizeEmailConsent(row);emailConsentOpen=true;render();return;
+    }
+    if(action==='email-consent-close'){
+      ++emailConsentSeq;emailConsentOpen=false;render();return;
+    }
     if(action==='notification-prefs'){
       const obraId=data?.obra.id;
       const row=await repo.getNotificationPreferences(obraId);
@@ -196,7 +221,7 @@ export async function mountApp(repo,root) {
       notificationPrefs=normalizeNotificationPreferences(row);notificationPrefsOpen=true;render();return;
     }
     if(action==='notification-pref-close'){notificationPrefsOpen=false;render();return;}
-    if(action==='page'){page=el.dataset.page;if(page!=='relatorios')reportSuggestedByFiscal=false;if(page!=='ajustes'){++dailyPreviewSeq;dailyPreview=null;}aptId='';render();window.scrollTo({top:0});return;}
+    if(action==='page'){page=el.dataset.page;if(page!=='relatorios')reportSuggestedByFiscal=false;if(page!=='ajustes'){++emailConsentSeq;emailConsent=null;emailConsentOpen=false;++dailyPreviewSeq;dailyPreview=null;}aptId='';render();window.scrollTo({top:0});return;}
     if(action==='reload'){await refresh();notify('Dados sincronizados.');return;}
     if(action==='new-apt'){if(!owner())return;aptForm();return;}
     if(action==='edit-apt'){if(!owner())return;aptForm(rowById('apartamentos',id));return;}
@@ -222,6 +247,16 @@ export async function mountApp(repo,root) {
   root.addEventListener('click',onClick);dialog.addEventListener('click',onClick);
   async function onSubmit(e){const form=e.target.closest('form[data-form]');if(!form)return;e.preventDefault();const values=Object.fromEntries(new FormData(form));await run(form,async()=>{
     const type=form.dataset.form;
+    if(type==='email-consent'){
+      const obraId=data?.obra?.id,userId=user?.id,seq=++emailConsentSeq;
+      if(!obraId||!userId)throw new Error('Selecione uma obra para autorizar.');
+      const autorizado=validateEmailConsentChoice(values.autorizado);
+      const row=await repo.saveEmailConsent(obraId,autorizado);
+      if(seq!==emailConsentSeq||data?.obra?.id!==obraId||user?.id!==userId||page!=='ajustes')return;
+      emailConsent=normalizeEmailConsent(row);emailConsentOpen=false;render();
+      notify(autorizado?'Autorização registrada. Nenhum e-mail é enviado nesta fase.':'Autorização de e-mail revogada.');
+      return;
+    }
     if(type==='notification-preferences'){
       const obraId=data.obra.id;
       const input=validateNotificationPreferences({...values,timezone:'America/Sao_Paulo'});
