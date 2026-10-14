@@ -81,6 +81,7 @@ test('Fiscal reader consults backend and renders read-only results',async()=>{
     form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));await tick();await tick();
     assert.equal(form.querySelector('[data-error]').textContent,'');
     assert.match(ui.root.textContent,/Falha de pintura/);assert.match(ui.root.textContent,/1.*ocorrências/s);
+    assert.ok(ui.root.querySelector('[data-action="export-excel"]'));
     assert.equal(ui.root.querySelector('.fiscal-record[data-action]'),null);
     assert.equal(ui.root.querySelector('[data-action="edit-item"]'),null);
   }finally{ui.app.stop();}
@@ -128,6 +129,7 @@ test('Fiscal descarta resposta antiga quando uma nova consulta termina primeiro'
     pending[1].resolve({filtros:pending[1].filters,resumo:summary});
     await tick();await tick();
     assert.match(ui.root.textContent,/2 ocorrências abertas/);
+    assert.equal(ui.root.querySelector('[data-action="export-excel"]'),null);
     pending[0].resolve({filtros:pending[0].filters,resumo:summary,ocorrencias:[{id:'outdated'}]});
     await tick();await tick();
     assert.match(ui.root.textContent,/2 ocorrências abertas/);
