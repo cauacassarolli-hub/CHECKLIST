@@ -134,3 +134,36 @@ test('Fiscal descarta resposta antiga quando uma nova consulta termina primeiro'
     assert.doesNotMatch(ui.root.textContent,/A consulta retornou 1 ocorrência/);
   } finally {ui.app.stop();}
 });
+
+test('Fiscal encaminha pedido de PDF para revisão dos filtros, sem gerar arquivo',async()=>{
+  const ui=await setup('member',()=>{throw new Error('Consulta RPC indevida durante preparação do PDF.');});
+  try {
+    await ui.click('[data-action="page"][data-page="fiscal"]');
+    const question=ui.root.querySelector('form[data-form="fiscal-question"]');
+    question.querySelector('[name="pergunta"]').setAttribute('value','Gere um relatório de pintura no pavimento 1º');
+    question.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.ok(ui.root.querySelector('form[data-form="report"]'));
+    assert.match(ui.root.textContent,/Filtros preparados pelo Fiscal/);
+    assert.match(ui.root.textContent,/Gerar PDF/);
+    const form=ui.root.querySelector('form[data-form="report"]');
+    assert.equal(form.querySelector('[name="tipo"] option[selected]')?.getAttribute('value'),'servico');
+    assert.equal(form.querySelector('[name="pavimento"] option[selected]')?.getAttribute('value'),'1º');
+    assert.equal(form.querySelector('[name="servico"] option[selected]')?.getAttribute('value'),'Pintura');
+    assert.equal(ui.root.querySelector('.pdf-panel'),null);
+  } finally {ui.app.stop();}
+});
+
+test('Fiscal recusa relatório de apartamento ainda não suportado',async()=>{
+  const ui=await setup('member');
+  try {
+    await ui.click('[data-action="page"][data-page="fiscal"]');
+    const question=ui.root.querySelector('form[data-form="fiscal-question"]');
+    question.querySelector('[name="pergunta"]').setAttribute('value','Gere um relatório do apartamento 101');
+    question.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.ok(ui.root.querySelector('form[data-form="fiscal-question"]'));
+    assert.equal(ui.root.querySelector('form[data-form="report"]'),null);
+    assert.match(question.querySelector('[data-error]').textContent,/apartamento ainda não estão disponíveis/);
+  } finally {ui.app.stop();}
+});
