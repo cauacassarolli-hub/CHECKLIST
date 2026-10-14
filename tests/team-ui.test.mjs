@@ -154,16 +154,35 @@ test('Fiscal encaminha pedido de PDF para revisão dos filtros, sem gerar arquiv
   } finally {ui.app.stop();}
 });
 
-test('Fiscal recusa relatório de apartamento ainda não suportado',async()=>{
+test('Fiscal prepara relatório por apartamento e serviço, sem gerar PDF automaticamente',async()=>{
+  const ui=await setup('member',()=>{throw new Error('Consulta RPC indevida durante preparação do PDF.');});
+  try {
+    await ui.click('[data-action="page"][data-page="fiscal"]');
+    const question=ui.root.querySelector('form[data-form="fiscal-question"]');
+    question.querySelector('[name="pergunta"]').setAttribute('value','Gere um relatório das ocorrências de pintura do apartamento 101');
+    question.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    const form=ui.root.querySelector('form[data-form="report"]');
+    assert.ok(form);
+    assert.match(ui.root.textContent,/Filtros preparados pelo Fiscal/);
+    assert.equal(form.querySelector('[name="tipo"] option[selected]')?.getAttribute('value'),'apartamento');
+    assert.equal(form.querySelector('[name="pavimento"] option[selected]')?.getAttribute('value'),'1º');
+    assert.equal(form.querySelector('[name="apartamento_id"] option[selected]')?.getAttribute('value'),'a');
+    assert.equal(form.querySelector('[name="servico"] option[selected]')?.getAttribute('value'),'Pintura');
+    assert.equal(ui.root.querySelector('.pdf-panel'),null);
+  } finally {ui.app.stop();}
+});
+
+test('Fiscal rejeita unidade inexistente em vez de gerar relatório de toda a obra',async()=>{
   const ui=await setup('member');
   try {
     await ui.click('[data-action="page"][data-page="fiscal"]');
     const question=ui.root.querySelector('form[data-form="fiscal-question"]');
-    question.querySelector('[name="pergunta"]').setAttribute('value','Gere um relatório do apartamento 101');
+    question.querySelector('[name="pergunta"]').setAttribute('value','Gere um relatório do apartamento 999');
     question.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
     await tick();await tick();
     assert.ok(ui.root.querySelector('form[data-form="fiscal-question"]'));
     assert.equal(ui.root.querySelector('form[data-form="report"]'),null);
-    assert.match(question.querySelector('[data-error]').textContent,/apartamento ainda não estão disponíveis/);
+    assert.match(question.querySelector('[data-error]').textContent,/Apartamento não encontrado/);
   } finally {ui.app.stop();}
 });
