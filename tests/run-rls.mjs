@@ -30,6 +30,10 @@ try {
   const end=foundation.indexOf('-- A funcao e usada internamente',start);
   if(start<0||end<0)throw new Error('Notification migration segment not found.');
   await db.exec(foundation.slice(start,end));
+  await db.exec(await fs.readFile(new URL('../supabase/migrations/20261014211654_fiscal_preferencias_notificacao_grants_seguros.sql',import.meta.url),'utf8'));
+  const grants=await db.query("select has_table_privilege('anon','public.chk_preferencias_notificacao','SELECT') as anon_select,has_table_privilege('authenticated','public.chk_preferencias_notificacao','INSERT') as authenticated_insert");
+  assert.equal(grants.rows[0].anon_select,false,'Anonymous grants must be revoked');
+  assert.equal(grants.rows[0].authenticated_insert,true,'Authenticated RLS writes require table grant');
   const notifications=await db.exec(await fs.readFile(new URL('./notifications.sql',import.meta.url),'utf8'));
   console.log('notifications.sql: '+notifications.at(-1).rows[0].result);
   assert.equal((await db.query('select count(*)::int as n from auth.users')).rows[0].n,1,'Test Auth fixtures rolled back');
