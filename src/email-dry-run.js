@@ -50,7 +50,7 @@ export function createEmailDigestDryRun({getAuthUser,getWorkState,clock=()=>new 
       return blocked('email_nao_confirmado',{data_local:day});
 
     let state;
-    try{state=await getWorkState({userId,obraId,dataLocal:day});}catch{
+    try{state=await getWorkState({userId,obraId,dataLocal:day,evaluatedAt:new Date(now).toISOString()});}catch{
       return blocked('consulta_indisponivel',{data_local:day});
     }
     // Missing backend attestations are never interpreted as permission.
