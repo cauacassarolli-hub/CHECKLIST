@@ -20,29 +20,36 @@ export function interpretFiscalReportRequest(data,question=''){
   if(!details)throw new Error('Informe o pavimento, o serviço ou as pendências do relatório.');
   if(/\b(?:excel|xlsx|csv|planilha|email|e-mail|whatsapp|envi\w*|compartilh\w*|export\w*|baix\w*|imprim\w*|salv\w*)\b/.test(details))
     throw new Error('O Fiscal ainda não envia nem exporta relatórios por mensagem ou planilha.');
-  if(/\b(?:apto|apartamento)\s*[\w-]+/.test(details))
-    throw new Error('Relatórios filtrados por apartamento ainda não estão disponíveis no Fiscal.');
   if(/\b(?:ambient\w*|responsavel\w*|corrigid\w*|conform\w*|status)\b/.test(details))
     throw new Error('Este filtro de relatório ainda não é suportado pelo Fiscal.');
 
   // Reutiliza as regras de reconhecimento e validação do leitor já testado.
   const {filtros}=interpretAgentQuestion(data,'Mostre ocorrências '+details);
+  const matches=(data.apartamentos||[]).filter(a=>a.apartamento===filtros.apartamento && (!filtros.pavimento||a.pavimento===filtros.pavimento));
+  const apt=filtros.apartamento?(matches.length===1?matches[0]:null):null;
+  if(filtros.apartamento && !apt?.id)
+    throw new Error('Apartamento não identificado de forma única nesta obra.');
+  const apartamento_id=apt?.id||'';
+  const pavimento=filtros.pavimento||apt?.pavimento||'';
   const finalizacao=/\b(?:finaliz\w*|liberac\w*)\b/.test(details);
   const pendencias=/\b(?:pendenc\w*|pendente\w*)\b/.test(details);
 
   if(finalizacao){
-    if(!filtros.pavimento||filtros.servico)
+    if(!pavimento||filtros.servico||apartamento_id)
       throw new Error('O relatório de finalização exige um pavimento, sem filtro de serviço.');
-    return {tipo:'finalizacao',pavimento:filtros.pavimento,servico:'',status:'',responsavel:''};
+    return {tipo:'finalizacao',pavimento,apartamento_id:'',servico:'',status:'',responsavel:''};
   }
   if(pendencias){
-    return {tipo:'pendencias',pavimento:filtros.pavimento,servico:filtros.servico,status:'',responsavel:''};
+    return {tipo:'pendencias',pavimento,apartamento_id,servico:filtros.servico,status:'',responsavel:''};
+  }
+  if(apartamento_id){
+    return {tipo:'apartamento',pavimento,apartamento_id,servico:filtros.servico,status:'',responsavel:''};
   }
   if(filtros.servico){
-    return {tipo:'servico',pavimento:filtros.pavimento,servico:filtros.servico,status:'',responsavel:''};
+    return {tipo:'servico',pavimento,apartamento_id:'',servico:filtros.servico,status:'',responsavel:''};
   }
-  if(filtros.pavimento){
-    return {tipo:'pavimento',pavimento:filtros.pavimento,servico:'',status:'',responsavel:''};
+  if(pavimento){
+    return {tipo:'pavimento',pavimento,apartamento_id:'',servico:'',status:'',responsavel:''};
   }
   throw new Error('Não identifiquei um pavimento, serviço ou conjunto de pendências para o relatório.');
 }

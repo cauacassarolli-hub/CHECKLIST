@@ -1,6 +1,6 @@
 export const ITEM_STATUS = { pendente: 'Pendente', correcao: 'Em correção', corrigido: 'Corrigido', conforme: 'Conforme' };
 export const APT_STATUS = { nao_iniciado: 'Não vistoriado', nao_vistoriado: 'Não vistoriado', em_vistoria: 'Em vistoria', com_pendencias: 'Com pendências', em_correcao: 'Em correção', conforme: 'Conforme', finalizado: 'Finalizado' };
-export const REPORT_TYPES = { pavimento: 'Fotográfico por pavimento', servico: 'Por serviço', pendencias: 'Pendências', finalizacao: 'Finalização do pavimento' };
+export const REPORT_TYPES = { pavimento: 'Fotográfico por pavimento', apartamento: 'Fotográfico por apartamento', servico: 'Por serviço', pendencias: 'Pendências', finalizacao: 'Finalização do pavimento' };
 export const isOpen = i => ['pendente', 'correcao', 'em_correcao'].includes(i.status);
 export const isApproved = a => ['conforme', 'finalizado'].includes(a.status);
 export const natural = (a,b) => String(a).localeCompare(String(b), 'pt-BR', {numeric:true});
@@ -94,11 +94,22 @@ export function occurrenceSummary(data, filters={}) {
 }
 
 export function buildReportModel(data, filters) {
-  const {tipo, pavimento='', servico='', status='', responsavel=''} = filters;
+  const {tipo, pavimento='', apartamento_id='', servico='', status='', responsavel=''} = filters;
   if (!REPORT_TYPES[tipo]) throw new Error('Selecione o tipo de relatório.');
   if (['pavimento','finalizacao'].includes(tipo) && !pavimento) throw new Error('Selecione um pavimento.');
+  if (tipo === 'apartamento' && !apartamento_id) throw new Error('Selecione um apartamento.');
+  if (apartamento_id && !['apartamento','pendencias'].includes(tipo))
+    throw new Error('O filtro de apartamento não é compatível com este tipo de relatório.');
   if (tipo === 'servico' && (!servico || !data.servicos.some(s => s.nome===servico))) throw new Error('Selecione um serviço cadastrado.');
-  const apartments=data.apartamentos.filter(a=>!pavimento || a.pavimento===pavimento).map(a=>({...a,status:apartmentStatus(a,data.itens)})).sort(sortApts);
+  if (servico && !['pavimento','finalizacao'].includes(tipo) && !data.servicos.some(s => s.nome===servico))
+    throw new Error('Serviço não cadastrado nesta obra.');
+
+  const selected=data.apartamentos.filter(a=>(!pavimento||a.pavimento===pavimento)&&(!apartamento_id||a.id===apartamento_id));
+  if (apartamento_id && selected.length!==1)
+    throw new Error(selected.length?'Apartamento ambíguo. Selecione também o pavimento.':'Apartamento não encontrado no pavimento informado.');
+  const selectedPavimento=apartamento_id?selected[0].pavimento:pavimento;
+  const apartmentLabel=apartamento_id?selected[0].apartamento:'';
+  const apartments=selected.map(a=>({...a,status:apartmentStatus(a,data.itens)})).sort(sortApts);
   if (!apartments.length) throw new Error('Nenhum apartamento no pavimento selecionado.');
   const ids=new Set(apartments.map(a=>a.id));
   const floorItems=data.itens.filter(i=>ids.has(i.apartamento_id));
@@ -114,7 +125,7 @@ export function buildReportModel(data, filters) {
   const approved=apartments.filter(a=>isApproved(a) && !pendingApts.some(p=>p.id===a.id));
   const notApproved=apartments.length-approved.length;
   const conclusion=pendingApts.length ? `Atenção: ${pendingApts.length} apartamento(s) com pendências. Pavimento não liberado.` : notApproved ? `Vistoria a concluir: ${notApproved} apartamento(s) ainda sem classificação Conforme/Finalizado. Pavimento não liberado.` : 'Pavimento conforme: todos os apartamentos classificados como Conforme ou Finalizado, sem pendências abertas.';
-  return { obra:data.obra, tipo, filters:{tipo,pavimento,servico,status,responsavel}, titulo:`${REPORT_TYPES[tipo]}${pavimento?' · '+pavimento:''}${tipo==='servico'?' · '+servico:''}`, created_at:new Date().toISOString(), apartments, items, summary:{total:apartments.length, approved:approved.length, pending:pendingApts.length, pendingItems:floorItems.filter(isOpen).length, notApproved, correctionTotal:floorItems.length, correctionPercent:progressOf(floorItems).percent, conclusion} };
+  return { obra:data.obra, tipo, filters:{tipo,pavimento:selectedPavimento,apartamento:apartmentLabel,apartamento_id,servico,status,responsavel}, titulo:`${REPORT_TYPES[tipo]}${selectedPavimento?' · '+selectedPavimento:''}${apartmentLabel?' · Apto '+apartmentLabel:''}${servico&&!['pavimento','finalizacao'].includes(tipo)?' · '+servico:''}`, created_at:new Date().toISOString(), apartments, items, summary:{total:apartments.length, approved:approved.length, pending:pendingApts.length, pendingItems:floorItems.filter(isOpen).length, notApproved, correctionTotal:floorItems.length, correctionPercent:progressOf(floorItems).percent, conclusion} };
 }
 export function validatePublicConfig(config) {
   if (!config?.url || !config?.key) return false;
