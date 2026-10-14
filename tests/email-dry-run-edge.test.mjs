@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createEmailDryRunHandler} from '../supabase/functions/simular-resumo-email/handler.js';
 import {build} from 'esbuild';
+import {readFile} from 'node:fs/promises';
 
 const userId='10000000-0000-4000-8000-000000000001';
 const workId='20000000-0000-4000-8000-000000000002';
@@ -103,4 +104,14 @@ test('Código Deno compila com o mesmo simulador e importações npm externas',a
   });
   assert.ok(out.outputFiles[0].text.includes('createEmailDigestDryRun'));
   assert.ok(out.outputFiles[0].text.includes('createEmailDryRunHandler'));
+});
+
+test('Pacote Edge usa cópias exatamente iguais aos módulos testados',async()=>{
+  for(const file of ['email-dry-run.js','daily-delivery.js','notification-preferences.js']){
+    const [canonical,packaged]=await Promise.all([
+      readFile(new URL('../src/'+file,import.meta.url),'utf8'),
+      readFile(new URL('../supabase/functions/simular-resumo-email/'+file,import.meta.url),'utf8')
+    ]);
+    assert.equal(packaged,canonical,'Arquivo Edge desatualizado: '+file);
+  }
 });
