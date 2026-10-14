@@ -19,7 +19,7 @@ test('Exibição diferencia elegibilidade hipotética de entrega executada',()=>
   assert.match(blocked.explicacao,/não está autorizado/);
 });
 test('Diagnóstico nunca repassa mensagens arbitrárias ou dados privados do servidor',()=>{
-  const display=describeEmailSimulation({...candidate,motivo:'código inventado'});
+  const display=describeEmailSimulation({...candidate,apto_para_preparar:false,motivo:'código inventado'});
   assert.equal(display.explicacao,'Não foi possível concluir a simulação.');
   assert.equal(JSON.stringify(display).includes('código inventado'),false);
   assert.throws(()=>describeEmailSimulation({...candidate,envio_executado:true}),/Resposta inválida/);
