@@ -62,6 +62,22 @@ export class Repository {
     const activities=check(await this.client.from('chk_atividades').select('*').eq('obra_id',obra.id).order('created_at',{ascending:false}).order('id').limit(50));
     return Object.fromEntries([['obra',current],['atividades',activities],...tables.map((t,i)=>[t,rows[i]])]);
   }
+  async simulateEmailDigest(obraId) {
+    this.requireUser();
+    if(!obraId)throw new Error('Selecione uma obra para simular.');
+    const result=await this.client.functions.invoke('simular-resumo-email',{
+      body:{work_id:obraId}
+    });
+    if(result.error){
+      let message;
+      try{message=(await result.error.context?.json())?.error;}catch{}
+      throw new Error(message||'Não foi possível consultar a simulação. Tente novamente.');
+    }
+    if(!result.data||typeof result.data.apto_para_preparar!=='boolean'||
+      result.data.envio_executado!==false||result.data.reserva_criada!==false)
+      throw new Error('Resposta inválida da simulação.');
+    return result.data;
+  }
   async getEmailConsent(obraId) {
     const userId=this.requireUser();
     if(!obraId)throw new Error('Selecione uma obra.');
