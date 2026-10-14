@@ -34,3 +34,10 @@ test('Fiscal falha de maneira explícita com dados ausentes ou ação proibida',
   assert.throws(()=>formatFiscalAnswer('Liste',response('CONSULTAR_OCORRENCIAS')),/indisponível/);
   assert.throws(()=>formatFiscalAnswer('Apague',response('EXCLUIR_OCORRENCIA')),/não permitida/);
 });
+
+test('Fiscal diferencia zero válido de contagem ausente',()=>{
+  const empty={total:0,abertas:0,pendentes:0,em_correcao:0,corrigidas:0,conformes:0,servicos:[]};
+  assert.match(formatFiscalAnswer('Quantas pendências temos?',{acao:'CONSULTAR_RESUMO',resumo:empty}),/0 ocorrências abertas/);
+  assert.match(formatFiscalAnswer('Resumo da obra',{acao:'CONSULTAR_RESUMO',resumo:empty}),/0 ocorrências/);
+  assert.throws(()=>formatFiscalAnswer('Resumo da obra',{acao:'CONSULTAR_RESUMO',resumo:{...empty,total:null}}),/Dados incompletos/);
+});
