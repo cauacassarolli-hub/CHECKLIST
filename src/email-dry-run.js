@@ -1,6 +1,6 @@
 import { planDailyDigest, DAILY_DELIVERY_ZONE } from './daily-delivery.js';
 
-const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const blocked=(reason,details={})=>Object.freeze({
   apto_para_preparar:false,
   motivo:reason,
