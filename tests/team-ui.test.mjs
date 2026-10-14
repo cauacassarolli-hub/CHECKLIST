@@ -244,3 +244,70 @@ test('Horário inválido não é enviado ao repositório nem altera preferência
     assert.match(form.querySelector('[data-error]').textContent,/horário válido/);
   }finally{ui.app.stop();}
 });
+
+
+test('Resumo diário consulta RPC de leitura e não envia mensagens',async()=>{
+  let calls=0;
+  const ui=await setup('member',async(obraId,filters)=>{
+    calls++;
+    assert.equal(obraId,'w');
+    assert.deepEqual(filters,{});
+    return {
+      filtros:{pavimento:'',apartamento:'',servico:'',ambiente:'',status:''},
+      resumo:{total:4,abertas:3,pendentes:2,em_correcao:1,corrigidas:1,conformes:0,
+        servicos:[{servico:'Pintura',total:4,abertas:3}]},
+      ocorrencias:[{id:'secret-photo-path',foto_antes_path:'private/photo.jpg'}]
+    };
+  });
+  try {
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    assert.ok(ui.root.querySelector('[data-action="daily-preview"]'));
+    assert.equal(ui.root.querySelector('[data-daily-preview]'),null);
+    await ui.click('[data-action="daily-preview"]');
+    await tick();await tick();
+    const preview=ui.root.querySelector('[data-daily-preview]');
+    assert.ok(preview,'Prévia deve aparecer somente após a consulta');
+    assert.match(preview.textContent,/Obra compartilhada/);
+    assert.match(preview.textContent,/3.*abertas/);
+    assert.match(preview.textContent,/2.*pendentes/);
+    assert.match(preview.textContent,/1.*em correção/);
+    assert.match(preview.textContent,/Pintura/);
+    assert.match(preview.textContent,/Nenhuma mensagem foi enviada/);
+    assert.doesNotMatch(preview.textContent,/private\/photo.jpg|secret-photo-path/);
+    assert.equal(calls,1,'Somente uma consulta autenticada deve ocorrer');
+  }finally{ui.app.stop();}
+});
+
+test('Resumo diário antigo não aparece depois da troca de obra',async()=>{
+  let resolveQuery;
+  const ui=await setup('member',()=>new Promise(resolve=>{resolveQuery=resolve;}));
+  try {
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="daily-preview"]');
+    assert.equal(typeof resolveQuery,'function');
+    await ui.click('[data-action="obras"]');
+    resolveQuery({
+      filtros:{pavimento:'',apartamento:'',servico:'',ambiente:'',status:''},
+      resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0,
+        servicos:[{servico:'Pintura',total:1,abertas:1}]}
+    });
+    await tick();await tick();
+    assert.equal(ui.root.querySelector('[data-daily-preview]'),null);
+    assert.doesNotMatch(ui.root.textContent,/Nenhuma mensagem foi enviada/);
+  }finally{ui.app.stop();}
+});
+
+test('Resumo diário incompleto exibe erro e não inventa totais zerados',async()=>{
+  const ui=await setup('member',async()=>({
+    filtros:{pavimento:'',apartamento:'',servico:'',ambiente:'',status:''},
+    resumo:{total:2,abertas:2,pendentes:1,em_correcao:0,corrigidas:0,conformes:0,
+      servicos:[{servico:'Pintura',total:2,abertas:2}]}
+  }));
+  try {
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="daily-preview"]');
+    await tick();await tick();
+    assert.equal(ui.root.querySelector('[data-daily-preview]'),null);
+    assert.match(ui.root.textContent,/contagens de pendências não conferem/);
+  }finally{ui.app.stop();}
+});
