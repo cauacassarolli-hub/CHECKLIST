@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildDailyDigest,DAILY_DIGEST_TIMEZONE} from '../src/daily-digest.js';
+import {buildDailyDigest,formatDailyDigestMessage,DAILY_DIGEST_TIMEZONE} from '../src/daily-digest.js';
 
 const obra={id:'obra-a',nome:'Residencial QA'};
 const counts={total:10,abertas:6,pendentes:4,em_correcao:2,corrigidas:3,conformes:1};
@@ -69,4 +69,40 @@ test('Prévia falha fechada com dados incompletos ou inconsistentes',()=>{
   assert.throws(()=>buildDailyDigest(obra,make(counts,[{servico:'X',abertas:7,total:7}])),/pendências por serviço/);
   assert.throws(()=>buildDailyDigest(obra,make(counts,[{servico:'X',abertas:6,total:5}])),/Total inválido/);
   assert.throws(()=>buildDailyDigest(obra,make(counts,undefined).resumo===undefined?{}:{...make(),resumo:{...counts}}),/Ranking de serviços/);
+});
+
+
+test('Mensagem copiável apresenta a situação atual sem inventar alterações diárias',()=>{
+  const digest=buildDailyDigest(obra,make(),new Date('2026-10-14T15:00:00Z'));
+  const text=formatDailyDigestMessage(digest);
+  assert.match(text,/FISCAL DE QUALIDADE — RESUMO DAS PENDÊNCIAS/);
+  assert.match(text,/Obra: Residencial QA/);
+  assert.match(text,/Ocorrências registradas: 10/);
+  assert.match(text,/Pendências abertas: 6/);
+  assert.match(text,/• Pendentes: 4/);
+  assert.match(text,/• Em correção: 2/);
+  assert.match(text,/Pintura: 4 aberta\(s\)/);
+  assert.match(text,/Elétrica: 2 aberta\(s\)/);
+  assert.match(text,/Não representa necessariamente alterações nas últimas 24 horas/);
+  assert.doesNotMatch(text,/http:|https:|foto_|destinatário/);
+});
+
+test('Mensagem copiável trata obras sem pendências e impede injeção de linhas',()=>{
+  const digest=buildDailyDigest({id:'w',nome:'Obra\nAVISO FALSO'},make(
+    {total:1,abertas:0,pendentes:0,em_correcao:0,corrigidas:1,conformes:0},
+    [{servico:'Pintura',total:1,abertas:0}]
+  ));
+  const text=formatDailyDigestMessage(digest);
+  assert.match(text,/Obra: Obra AVISO FALSO\nConsulta:/);
+  assert.match(text,/Nenhuma pendência aberta/);
+  assert.doesNotMatch(text,/Obra:\s*Obra\nAVISO/);
+});
+
+test('Mensagem copiável só aceita prévias não enviadas e válidas',()=>{
+  const digest=buildDailyDigest(obra,make());
+  assert.throws(()=>formatDailyDigestMessage(null),/prévia válida/);
+  assert.throws(()=>formatDailyDigestMessage({...digest,enviado:true}),/prévia válida/);
+  assert.throws(()=>formatDailyDigestMessage({...digest,resumo:{...digest.resumo,abertas:5}}),/contagens de pendências/);
+  assert.throws(()=>formatDailyDigestMessage({...digest,principais_servicos:null}),/Ranking inválido/);
+  assert.throws(()=>formatDailyDigestMessage({...digest,outros_servicos:-2}),/outros_servicos/);
 });
