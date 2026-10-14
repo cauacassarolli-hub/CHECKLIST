@@ -43,7 +43,7 @@ try {
   await db.exec(await fs.readFile(new URL('../supabase/migrations/20261014221406_fiscal_consentimento_email_explicito.sql',import.meta.url),'utf8'));
   const consent=await db.exec(await fs.readFile(new URL('./email-consent.sql',import.meta.url),'utf8'));
   console.log('email-consent.sql: '+consent.at(-1).rows[0].result);
-  await db.exec(await fs.readFile(new URL('./email-candidates-schema.sql',import.meta.url),'utf8'));
+  await db.exec(await fs.readFile(new URL('../supabase/migrations/20261014222101_fiscal_candidatos_email_privados.sql',import.meta.url),'utf8'));
   const candidates=await db.exec(await fs.readFile(new URL('./email-candidates.sql',import.meta.url),'utf8'));
   console.log('email-candidates.sql: '+candidates.at(-1).rows[0].result);
   assert.equal((await db.query('select count(*)::int as n from auth.users')).rows[0].n,1,'Test Auth fixtures rolled back');
