@@ -21,13 +21,15 @@ async function setup(userId='owner',queryOccurrencesOverride=null) {
     itens:[{id:'i',user_id:'owner',obra_id:'w',apartamento_id:'a',versao:1,ambiente:'Sala',servico:'Pintura',status:'pendente',criado_por_nome:'Autor original',atualizado_por_nome:'Colega da obra',foto_antes_path:'owner/w/a/i/a.jpg',observacao:'Verificar pintura'}],
     relatorios:[],membros_obra:[{id:'m',user_id:'member',obra_id:'w',nome:'Colega da obra',ativo:true}],
     convites_obra:[],atividades:[{id:'log',obra_id:'w',entidade:'chk_itens',acao:'UPDATE',autor_nome:'Colega da obra',created_at:'2026-09-23T10:00:00Z',detalhes:{apartamento_id:'a',servico:'Pintura',status:'pendente'}}]};
-  let offline=false;
+  let offline=false,savedNotification=null;
   const repo={session:async()=>user,acceptInvites:async()=>0,list:async()=>[data.obra],load:async()=>structuredClone(data),
+    getNotificationPreferences:async obraId=>{assert.equal(obraId,'w');return savedNotification;},
+    saveNotificationPreferences:async(obraId,pref)=>{assert.equal(obraId,'w');savedNotification={...pref,horario:pref.horario+':00'};return savedNotification;},
     get:async(table,id)=>{if(offline)throw new Error('Network unavailable');return structuredClone(data[table].find(r=>r.id===id));},
     signedPhoto:async()=> 'about:blank',queryOccurrences:queryOccurrencesOverride||(async(obraId,filters)=>({filtros:filters,resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0,servicos:[{servico:'Pintura',abertas:1,total:1}]},ocorrencias:[{id:'i',pavimento:'1º',apartamento:'101',titulo:'Falha de pintura',servico:'Pintura',ambiente:'Sala',status:'pendente',descricao:'Verificar pintura',updated_at:'2026-09-23T10:00:00Z'}]}))};
   const app=await mountApp(repo,root);
   const click=async selector=>{const el=document.querySelector(selector);assert.ok(el,selector);el.dispatchEvent(new window.Event('click',{bubbles:true}));await tick();};
-  return{root,document,window,data,app,click,cache,goOffline:()=>{offline=true;navigator.onLine=false;}};
+  return{root,document,window,data,app,click,cache,savedNotification:()=>savedNotification,goOffline:()=>{offline=true;navigator.onLine=false;}};
 }
 test('Owner manages the team and sees who changed a shared record',async()=>{
   const ui=await setup();try{
@@ -203,5 +205,42 @@ test('Fiscal prepara planilha Excel por linguagem natural sem baixar automaticam
     assert.equal(ui.root.querySelector('.pdf-panel'),null);
     assert.equal(ui.root.querySelector('a[download]'),null);
     assert.equal(ui.root.querySelector('.fiscal-record[data-action]'),null);
+  }finally{ui.app.stop();}
+});
+
+test('Preferências pessoais são salvas por obra sem realizar envio de mensagens',async()=>{
+  const ui=await setup('member');
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    assert.match(ui.root.textContent,/o envio automático ainda não está habilitado/i);
+    await ui.click('[data-action="notification-prefs"]');
+    const form=ui.root.querySelector('form[data-form="notification-preferences"]');
+    assert.ok(form);
+    form.querySelector('[name="ativo"] option[value="false"]').removeAttribute('selected');
+    form.querySelector('[name="ativo"] option[value="true"]').setAttribute('selected','');
+    form.querySelector('[name="horario"]').setAttribute('value','08:45');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.equal(ui.savedNotification().ativo,true);
+    assert.equal(ui.savedNotification().horario,'08:45:00');
+    assert.equal(ui.savedNotification().timezone,'America/Sao_Paulo');
+    assert.equal(ui.root.querySelector('form[data-form="notification-preferences"]'),null);
+    assert.match(ui.root.textContent,/o envio automático ainda não está habilitado/i);
+    await ui.click('[data-action="notification-prefs"]');
+    assert.equal(ui.root.querySelector('[name="horario"]').getAttribute('value'),'08:45');
+  }finally{ui.app.stop();}
+});
+
+test('Horário inválido não é enviado ao repositório nem altera preferências',async()=>{
+  const ui=await setup('member');
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="notification-prefs"]');
+    const form=ui.root.querySelector('form[data-form="notification-preferences"]');
+    form.querySelector('[name="horario"]').setAttribute('value','30:80');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.equal(ui.savedNotification(),null);
+    assert.match(form.querySelector('[data-error]').textContent,/horário válido/);
   }finally{ui.app.stop();}
 });

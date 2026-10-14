@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { draftRow } from './domain.js';
+import { validateNotificationPreferences } from './notification-preferences.js';
 import {consumeAuthLink,clearPasswordSetup,validateNewPassword} from './auth-links.js';
 
 export const PHOTOS='checklist-fotos', REPORTS='checklist-relatorios';
@@ -59,6 +60,22 @@ export class Repository {
     const rows=await Promise.all(tables.map(t=>this.list(t,obra.id)));
     const activities=check(await this.client.from('chk_atividades').select('*').eq('obra_id',obra.id).order('created_at',{ascending:false}).order('id').limit(50));
     return Object.fromEntries([['obra',current],['atividades',activities],...tables.map((t,i)=>[t,rows[i]])]);
+  }
+  async getNotificationPreferences(obraId) {
+    const userId=this.requireUser();
+    if(!obraId)throw new Error('Selecione uma obra.');
+    return check(await this.client.from('chk_preferencias_notificacao')
+      .select('ativo,horario,timezone,incluir_resumo')
+      .eq('obra_id',obraId).eq('user_id',userId).maybeSingle());
+  }
+  async saveNotificationPreferences(obraId,values) {
+    const userId=this.requireUser();
+    if(!obraId)throw new Error('Selecione uma obra.');
+    const validated=validateNotificationPreferences(values);
+    return check(await this.client.from('chk_preferencias_notificacao')
+      .upsert({...validated,obra_id:obraId,user_id:userId,updated_at:new Date().toISOString()},
+        {onConflict:'user_id,obra_id'})
+      .select('ativo,horario,timezone,incluir_resumo').single());
   }
   async queryOccurrences(obraId,filters={}) {
     this.requireUser();
