@@ -40,6 +40,9 @@ try {
   await db.exec(await fs.readFile(new URL('../supabase/migrations/20261014214934_fiscal_entregas_resumo_ledger_privado.sql',import.meta.url),'utf8'));
   const ledger=await db.exec(await fs.readFile(new URL('./delivery-ledger.sql',import.meta.url),'utf8'));
   console.log('delivery-ledger.sql: '+ledger.at(-1).rows[0].result);
+  await db.exec(await fs.readFile(new URL('../supabase/migrations/20261014221406_fiscal_consentimento_email_explicito.sql',import.meta.url),'utf8'));
+  const consent=await db.exec(await fs.readFile(new URL('./email-consent.sql',import.meta.url),'utf8'));
+  console.log('email-consent.sql: '+consent.at(-1).rows[0].result);
   assert.equal((await db.query('select count(*)::int as n from auth.users')).rows[0].n,1,'Test Auth fixtures rolled back');
   assert.equal((await db.query('select count(*)::int as n from chk_membros_obra')).rows[0].n,0,'No production membership seeds');
 } catch(e) {console.error(e.message);if(e.where)console.error(e.where);process.exitCode=1;}

@@ -21,15 +21,20 @@ async function setup(userId='owner',queryOccurrencesOverride=null) {
     itens:[{id:'i',user_id:'owner',obra_id:'w',apartamento_id:'a',versao:1,ambiente:'Sala',servico:'Pintura',status:'pendente',criado_por_nome:'Autor original',atualizado_por_nome:'Colega da obra',foto_antes_path:'owner/w/a/i/a.jpg',observacao:'Verificar pintura'}],
     relatorios:[],membros_obra:[{id:'m',user_id:'member',obra_id:'w',nome:'Colega da obra',ativo:true}],
     convites_obra:[],atividades:[{id:'log',obra_id:'w',entidade:'chk_itens',acao:'UPDATE',autor_nome:'Colega da obra',created_at:'2026-09-23T10:00:00Z',detalhes:{apartamento_id:'a',servico:'Pintura',status:'pendente'}}]};
-  let offline=false,savedNotification=null;
+  let offline=false,savedNotification=null,savedEmailConsent=null,emailConsentWrites=0;
   const repo={session:async()=>user,acceptInvites:async()=>0,list:async()=>[data.obra],load:async()=>structuredClone(data),
     getNotificationPreferences:async obraId=>{assert.equal(obraId,'w');return savedNotification;},
     saveNotificationPreferences:async(obraId,pref)=>{assert.equal(obraId,'w');savedNotification={...pref,horario:pref.horario+':00'};return savedNotification;},
+    getEmailConsent:async obraId=>{assert.equal(obraId,'w');return savedEmailConsent;},
+    saveEmailConsent:async(obraId,autorizado)=>{assert.equal(obraId,'w');assert.equal(typeof autorizado,'boolean');emailConsentWrites++;savedEmailConsent={
+      autorizado,autorizado_em:autorizado?'2026-10-14T21:00:00Z':savedEmailConsent?.autorizado_em||null,
+      revogado_em:autorizado?null:'2026-10-14T22:00:00Z'
+    };return savedEmailConsent;},
     get:async(table,id)=>{if(offline)throw new Error('Network unavailable');return structuredClone(data[table].find(r=>r.id===id));},
     signedPhoto:async()=> 'about:blank',queryOccurrences:queryOccurrencesOverride||(async(obraId,filters)=>({filtros:filters,resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0,servicos:[{servico:'Pintura',abertas:1,total:1}]},ocorrencias:[{id:'i',pavimento:'1º',apartamento:'101',titulo:'Falha de pintura',servico:'Pintura',ambiente:'Sala',status:'pendente',descricao:'Verificar pintura',updated_at:'2026-09-23T10:00:00Z'}]}))};
   const app=await mountApp(repo,root);
   const click=async selector=>{const el=document.querySelector(selector);assert.ok(el,selector);el.dispatchEvent(new window.Event('click',{bubbles:true}));await tick();};
-  return{root,document,window,data,app,click,cache,savedNotification:()=>savedNotification,goOffline:()=>{offline=true;navigator.onLine=false;}};
+  return{root,document,window,data,app,click,cache,savedNotification:()=>savedNotification,savedEmailConsent:()=>savedEmailConsent,emailConsentWrites:()=>emailConsentWrites,goOffline:()=>{offline=true;navigator.onLine=false;}};
 }
 test('Owner manages the team and sees who changed a shared record',async()=>{
   const ui=await setup();try{
@@ -347,5 +352,64 @@ test('Falha do clipboard não informa sucesso e permite seleção manual',async(
     await tick();
     assert.match(ui.root.textContent,/Permissão para copiar negada/);
     assert.ok(ui.root.querySelector('[data-daily-message]'));
+  }finally{ui.app.stop();}
+});
+
+
+test('O usuário autoriza futuros e-mails somente após seleção e envio explícitos',async()=>{
+  const ui=await setup('member');
+  try {
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    assert.match(ui.root.textContent,/a preferência de horário não autoriza e-mails/i);
+    assert.equal(ui.savedEmailConsent(),null);
+    assert.equal(ui.emailConsentWrites(),0);
+    await ui.click('[data-action="email-consent-open"]');
+    const form=ui.root.querySelector('form[data-form="email-consent"]');
+    assert.ok(form);
+    assert.equal(form.querySelector('[name="autorizado"] option[selected]')?.getAttribute('value'),'false');
+    assert.equal(ui.emailConsentWrites(),0,'Abrir formulário não deve criar consentimento');
+    form.querySelector('[name="autorizado"] option[value="false"]').removeAttribute('selected');
+    form.querySelector('[name="autorizado"] option[value="true"]').setAttribute('selected','');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.equal(ui.emailConsentWrites(),1);
+    assert.equal(ui.savedEmailConsent().autorizado,true);
+    assert.match(ui.root.textContent,/Autorizado para futuros e-mails/);
+    assert.equal(ui.root.querySelector('form[data-form="email-consent"]'),null);
+    assert.match(ui.root.textContent,/Nenhuma mensagem automática está habilitada/i);
+  } finally {ui.app.stop();}
+});
+test('Usuário revoga e-mail sem afetar preferências de horário nem enviar mensagens',async()=>{
+  const ui=await setup('member');
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="email-consent-open"]');
+    let form=ui.root.querySelector('form[data-form="email-consent"]');
+    form.querySelector('[name="autorizado"] option[value="false"]').removeAttribute('selected');
+    form.querySelector('[name="autorizado"] option[value="true"]').setAttribute('selected','');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    await ui.click('[data-action="email-consent-open"]');
+    form=ui.root.querySelector('form[data-form="email-consent"]');
+    assert.equal(form.querySelector('[name="autorizado"] option[selected]')?.getAttribute('value'),'true');
+    form.querySelector('[name="autorizado"] option[value="true"]').removeAttribute('selected');
+    form.querySelector('[name="autorizado"] option[value="false"]').setAttribute('selected','');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.equal(ui.emailConsentWrites(),2);
+    assert.equal(ui.savedEmailConsent().autorizado,false);
+    assert.match(ui.root.textContent,/Não autorizado/);
+    assert.equal(ui.savedNotification(),null);
+    assert.equal(ui.root.querySelector('[data-action="send-email"]'),null);
+  }finally{ui.app.stop();}
+});
+test('Cancelar consentimento não grava autorização',async()=>{
+  const ui=await setup('member');
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="email-consent-open"]');
+    await ui.click('[data-action="email-consent-close"]');
+    assert.equal(ui.emailConsentWrites(),0);
+    assert.equal(ui.root.querySelector('form[data-form="email-consent"]'),null);
   }finally{ui.app.stop();}
 });
