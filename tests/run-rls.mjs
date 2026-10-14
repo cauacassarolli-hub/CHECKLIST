@@ -36,6 +36,10 @@ try {
   assert.equal(grants.rows[0].authenticated_insert,true,'Authenticated RLS writes require table grant');
   const notifications=await db.exec(await fs.readFile(new URL('./notifications.sql',import.meta.url),'utf8'));
   console.log('notifications.sql: '+notifications.at(-1).rows[0].result);
+  // Exercise the internal delivery table in a rollback-only PostgreSQL fixture.
+  await db.exec(await fs.readFile(new URL('../supabase/migrations/20261014214934_fiscal_entregas_resumo_ledger_privado.sql',import.meta.url),'utf8'));
+  const ledger=await db.exec(await fs.readFile(new URL('./delivery-ledger.sql',import.meta.url),'utf8'));
+  console.log('delivery-ledger.sql: '+ledger.at(-1).rows[0].result);
   assert.equal((await db.query('select count(*)::int as n from auth.users')).rows[0].n,1,'Test Auth fixtures rolled back');
   assert.equal((await db.query('select count(*)::int as n from chk_membros_obra')).rows[0].n,0,'No production membership seeds');
 } catch(e) {console.error(e.message);if(e.where)console.error(e.where);process.exitCode=1;}
