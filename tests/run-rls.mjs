@@ -49,6 +49,9 @@ try {
   await db.exec(await fs.readFile(new URL('../supabase/migrations/20261014222654_fiscal_reserva_atomica_email_privada.sql',import.meta.url),'utf8'));
   const reservation=await db.exec(await fs.readFile(new URL('./email-reservation.sql',import.meta.url),'utf8'));
   console.log('email-reservation.sql: '+reservation.at(-1).rows[0].result);
+  await db.exec(await fs.readFile(new URL('./email-dry-run-state-schema.sql',import.meta.url),'utf8'));
+  const dryRunState=await db.exec(await fs.readFile(new URL('./email-dry-run-state.sql',import.meta.url),'utf8'));
+  console.log('email-dry-run-state.sql: '+dryRunState.at(-1).rows[0].result);
   assert.equal((await db.query('select count(*)::int as n from auth.users')).rows[0].n,1,'Test Auth fixtures rolled back');
   assert.equal((await db.query('select count(*)::int as n from chk_membros_obra')).rows[0].n,0,'No production membership seeds');
 } catch(e) {console.error(e.message);if(e.where)console.error(e.where);process.exitCode=1;}
