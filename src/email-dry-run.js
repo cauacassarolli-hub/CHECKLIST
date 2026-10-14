@@ -8,12 +8,12 @@ const blocked=(reason,details={})=>Object.freeze({
   reserva_criada:false,
   ...details
 });
-const verifiedAuthEmail=user=>{
+const verifiedAuthEmail=(user,now)=>{
   // Only accept a trusted Auth Admin user, never user_metadata or request body.
   if(!user||typeof user.email!=='string'||!user.email.trim()||
       typeof user.email_confirmed_at!=='string')return false;
   const when=new Date(user.email_confirmed_at).getTime();
-  return Number.isFinite(when)&&when>0&&when<=Date.now();
+  return Number.isFinite(when)&&when>0&&when<=now.getTime();
 };
 const localDate=now=>{
   const date=now instanceof Date?now:new Date(now);
@@ -46,7 +46,7 @@ export function createEmailDigestDryRun({getAuthUser,getWorkState,clock=()=>new 
     }
     if(!authUser||authUser.id!==userId)
       return blocked('identidade_nao_confirmada',{data_local:day});
-    if(!verifiedAuthEmail(authUser))
+    if(!verifiedAuthEmail(authUser,new Date(now)))
       return blocked('email_nao_confirmado',{data_local:day});
 
     let state;
