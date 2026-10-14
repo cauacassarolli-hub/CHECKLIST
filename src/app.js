@@ -6,6 +6,7 @@ import { icon } from './icons.js';
 import { FiscalAgentGateway } from './fiscal-agent.js';
 import { formatFiscalAnswer } from './fiscal-answer.js';
 import { downloadFiscalExcel } from './excel.js';
+import { isFiscalExcelRequest,interpretFiscalExcelRequest,prepareFiscalExcelResult } from './fiscal-excel-intent.js';
 import { isFiscalReportRequest, interpretFiscalReportRequest } from './fiscal-report-intent.js';
 
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -183,6 +184,18 @@ export async function mountApp(repo,root) {
   async function onSubmit(e){const form=e.target.closest('form[data-form]');if(!form)return;e.preventDefault();const values=Object.fromEntries(new FormData(form));await run(form,async()=>{
     const type=form.dataset.form;
     if(type==='fiscal-question'){
+      if(isFiscalExcelRequest(values.pergunta)){
+        const request=interpretFiscalExcelRequest(data,values.pergunta);
+        const obraId=data.obra.id,userId=user.id,seq=++fiscalRequestSeq;
+        const fetched=await fiscalAgent.execute(obraId,{acao:request.acao,filtros:request.filtros});
+        if(seq!==fiscalRequestSeq||data?.obra.id!==obraId||user?.id!==userId)return;
+        fiscalFilters=request.filtros;
+        fiscalResult=prepareFiscalExcelResult(fetched,request.somenteAbertas);
+        fiscalAnswer=request.somenteAbertas
+          ?'Foram selecionadas apenas ocorrências abertas (pendentes e em correção). Confira os resultados e toque em Exportar Excel (.xlsx).'
+          :'Consulta preparada para Excel. Confira os resultados e toque em Exportar Excel (.xlsx).';
+        render();return;
+      }
       if(isFiscalReportRequest(values.pergunta)){
         const proposal=interpretFiscalReportRequest(data,values.pergunta);
         ++fiscalRequestSeq;

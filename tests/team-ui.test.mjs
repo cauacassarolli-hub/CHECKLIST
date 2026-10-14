@@ -188,3 +188,20 @@ test('Fiscal rejeita unidade inexistente em vez de gerar relatório de toda a ob
     assert.match(question.querySelector('[data-error]').textContent,/Apartamento não encontrado/);
   } finally {ui.app.stop();}
 });
+
+test('Fiscal prepara planilha Excel por linguagem natural sem baixar automaticamente',async()=>{
+  const ui=await setup('member');
+  try{
+    await ui.click('[data-action="page"][data-page="fiscal"]');
+    const form=ui.root.querySelector('form[data-form="fiscal-question"]');
+    form.querySelector('[name="pergunta"]').setAttribute('value','Gere uma planilha Excel das pendências do apartamento 101');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.match(ui.root.textContent,/ocorrências abertas \(pendentes e em correção\)/);
+    assert.ok(ui.root.querySelector('[data-action="export-excel"]'));
+    assert.ok(ui.root.querySelector('form[data-form="fiscal-question"]'));
+    assert.equal(ui.root.querySelector('.pdf-panel'),null);
+    assert.equal(ui.root.querySelector('a[download]'),null);
+    assert.equal(ui.root.querySelector('.fiscal-record[data-action]'),null);
+  }finally{ui.app.stop();}
+});
