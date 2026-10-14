@@ -9,7 +9,7 @@ const origin='https://cauacassarolli-hub.github.io';
 function fixture(overrides={}){
   const calls=[];
   const handle=createEmailDryRunHandler({
-    authenticate:async token=>{calls.push(['authenticate',token]);return overrides.auth??userId;},
+    authenticate:async token=>{calls.push(['authenticate',token]);return Object.hasOwn(overrides,'auth')?overrides.auth:userId;},
     simulate:async input=>{
       calls.push(['simulate',input]);
       if(overrides.error)throw Error('backend private failure');
