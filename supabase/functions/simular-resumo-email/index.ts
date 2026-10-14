@@ -1,5 +1,5 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.57.4';
-import {createEmailDigestDryRun} from '../../../src/email-dry-run.js';
+import {createEmailDigestDryRun} from './email-dry-run.js';
 import {createEmailDryRunHandler} from './handler.js';
 
 const url=Deno.env.get('SUPABASE_URL')||'';
