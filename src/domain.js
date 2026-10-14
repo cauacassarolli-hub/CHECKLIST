@@ -143,8 +143,21 @@ export const isOverdue=(item,today=new Date())=>!!item.prazo && isOpen(item) && 
 const normalizeAgentText=value=>String(value??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
 const findCatalogMention=(text,rows=[])=>{
   const normalized=normalizeAgentText(text);
-  return rows.find(row=>normalized.includes(normalizeAgentText(row.nome)))?.nome||'';
+  // Prefere o nome completo para não confundir, por exemplo, "Porta" e "Porta de madeira".
+  const ordered=[...rows].filter(row=>row?.nome).sort((a,b)=>b.nome.length-a.nome.length);
+  return ordered.find(row=>{
+    const name=normalizeAgentText(row.nome);
+    if(!name)return false;
+    let from=0,index;
+    while((index=normalized.indexOf(name,from))>=0){
+      const before=normalized[index-1]||'',after=normalized[index+name.length]||'';
+      if(!/[a-z0-9]/i.test(before)&&!/[a-z0-9]/i.test(after))return true;
+      from=index+name.length;
+    }
+    return false;
+  })?.nome||'';
 };
+const normalizeFloor=value=>normalizeAgentText(value).replace(/[ºª°]/g,'').replace(/(\d)[oa]$/,'$1');
 
 /**
  * Interpreta apenas consultas de leitura previsíveis.
@@ -154,31 +167,48 @@ export function interpretAgentQuestion(data,question=''){
   const raw=String(question??'').trim();
   if(!raw)throw new Error('Digite uma pergunta para o Fiscal.');
   const text=normalizeAgentText(raw);
-  if(/\b(cri(?:ar|e|a)|cadastr\w*|registr\w*|alter\w*|edit\w*|exclu\w*|apag\w*|delet\w*|remov\w*|envi\w*|mand\w*|aprov\w*|resolv\w*|corrij\w*|corrig\w*|finaliz\w*)\b/.test(text))
+  if(/\b(?:cri(?:ar|e|a|em)|cadastr(?:ar|e|a|em)|registr(?:ar|e|a|em)|alter(?:ar|e|a|em)|edit(?:ar|e|a|em)|exclu(?:ir|a|am|i)|apag(?:ar|ue|a|uem)|delet(?:ar|e|a|em)|remov(?:er|a|e|am)|envi(?:ar|e|a|em)|mand(?:ar|e|a|em)|aprov(?:ar|e|a|em)|resolv(?:er|a|e|am)|corrig(?:ir|e)|corrij(?:a|am)|finaliz(?:ar|e|a|em)|adicion(?:ar|e|a|em)|atualiz(?:ar|e|a|em)|mud(?:ar|e|a|em)|modific(?:ar|ar|ou|a|am)|liber(?:ar|e|a|em)|conclu(?:ir|a|i|am)|inser(?:ir|a|e|em)|marc(?:ar|a|ou|am)|notific(?:ar|e|a|am))\b/.test(text))
     throw new Error('O Fiscal está em modo somente leitura. Esta solicitação tenta alterar dados.');
 
+  // Comandos de relatório e exportação ainda não foram habilitados.
+  if(/\b(?:ger(?:ar|e|a|em)|export(?:ar|e|a|em)|baix(?:ar|e|a|em)|compartilh(?:ar|e|a|em)|imprim(?:ir|a|e|am)|fotograf(?:ar|e|a|em)|anex(?:ar|e|a|em))\b/.test(text))
+    throw new Error('Essa ação ainda não está disponível no Fiscal. Use as consultas e resumos somente leitura.');
+  // Perguntas fora do escopo não devem ser convertidas em listagem genérica da obra.
+  const readIntent=/\b(qual|quais|quanto|quantos|quantas|mostr\w*|list\w*|consult\w*|resumo|total|exib\w*|exist\w*|ocorrenc\w*|pendenc\w*|servic\w*|pavimento|andar|apartamento|apto|status|corrigid\w*|conform\w*)\b/.test(text);
+  const knownSubject=/\b(?:ocorrenc\w*|pendenc\w*|servic\w*|paviment\w*|andar\w*|apartament\w*|apto\w*|resumo\w*|status\w*|corrigid\w*|conform\w*|correcao|registro\w*)\b/.test(text);
+  if(!readIntent||!knownSubject)throw new Error('Pergunta não reconhecida. Peça ocorrências, pendências ou um resumo da obra.');
+
+  const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text)||/\b(qual|quais)\b.*\bservic\w*\b.*\bmais\b|\bservic\w*\b.*\bmais\b/.test(text);
   const filtros={pavimento:'',apartamento:'',servico:'',ambiente:'',status:''};
-  const floorMatch=text.match(/(?:pavimento|andar)\s+(?:do\s+|da\s+)?([\wºª-]+)/i);
+  const floorMatch=text.match(/\b(?:pavimento|andar)\s+(?:(?:do|da)\s+)?([\wºª°-]+)/i)
+    ||text.match(/\b(?:no|do|da|de)\s+(\d+[ºª°oa]?)\s+(?:pavimento|andar)\b/i);
   if(floorMatch){
-    const wanted=normalizeAgentText(floorMatch[1]).replace(/(?:o|a)$/,'');
-    const floor=(data.apartamentos||[]).map(a=>a.pavimento).find(v=>normalizeAgentText(v).replace(/(?:o|a)$/,'')===wanted);
-    if(!floor)throw new Error('Pavimento não encontrado nesta obra.');
-    filtros.pavimento=floor;
+    const wanted=normalizeFloor(floorMatch[1]);
+    const floors=[...new Set((data.apartamentos||[]).map(a=>a.pavimento).filter(Boolean))];
+    const matches=floors.filter(v=>normalizeFloor(v)===wanted);
+    if(!matches.length)throw new Error('Pavimento não encontrado nesta obra.');
+    if(matches.length>1)throw new Error('Pavimento ambíguo. Especifique o pavimento cadastrado.');
+    filtros.pavimento=matches[0];
   }
-  const aptMatch=text.match(/(?:apto|apartamento)\s*([\w-]+)/i);
+  const aptMatch=text.match(/\b(?:apto|apartamento)\s*([\w-]+)/i);
   if(aptMatch){
     const wanted=normalizeAgentText(aptMatch[1]);
-    const apt=(data.apartamentos||[]).find(a=>normalizeAgentText(a.apartamento)===wanted && (!filtros.pavimento||a.pavimento===filtros.pavimento));
-    if(!apt)throw new Error('Apartamento não encontrado nesta obra ou no pavimento informado.');
-    filtros.apartamento=apt.apartamento;
+    const matches=(data.apartamentos||[]).filter(a=>normalizeAgentText(a.apartamento)===wanted && (!filtros.pavimento||a.pavimento===filtros.pavimento));
+    if(!matches.length)throw new Error('Apartamento não encontrado nesta obra ou no pavimento informado.');
+    if(matches.length>1)throw new Error('Apartamento ambíguo. Informe o pavimento ou a unidade completa.');
+    filtros.apartamento=matches[0].apartamento;
   }
   filtros.servico=findCatalogMention(text,data.servicos);
   filtros.ambiente=findCatalogMention(text,data.ambientes);
-  if(/\bpendencias?\b|\bpendentes?\b/.test(text) && !/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text))filtros.status='pendente';
-  else if(/\bem correcao\b/.test(text))filtros.status='correcao';
+  if(/\bservic\w*\s+(?:de|do|da)\s+[^\s?!,.]+/.test(text)&&!filtros.servico)
+    throw new Error('Serviço não cadastrado nesta obra.');
+  if(/\bambient\w*\s+(?:de|do|da)\s+[^\s?!,.]+/.test(text)&&!filtros.ambiente)
+    throw new Error('Ambiente não cadastrado nesta obra.');
+  if(/\bem correcao\b/.test(text))filtros.status='correcao';
   else if(/\bcorrigid[ao]s?\b/.test(text))filtros.status='corrigido';
   else if(/\bconformes?\b/.test(text))filtros.status='conforme';
+  else if(/\bpendentes?\b/.test(text) && !asksSummary)filtros.status='pendente';
+  else if(/\bpendencias?\b/.test(text) && !asksSummary)filtros.status='pendente';
 
-  const asksSummary=/\b(quant[oa]s?|total|resumo|quantidade)\b/.test(text);
   return {acao:asksSummary?'CONSULTAR_RESUMO':'CONSULTAR_OCORRENCIAS',filtros};
 }

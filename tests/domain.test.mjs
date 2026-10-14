@@ -120,3 +120,60 @@ test('Resumo de pendencias nao exclui ocorrencias em correcao',()=>{
   assert.equal(r.acao,'CONSULTAR_RESUMO');
   assert.equal(r.filtros.status,'');
 });
+
+test('Fiscal reconhece pergunta por serviço com mais pendências como resumo',()=>{
+  const r=interpretAgentQuestion(data(),'Qual serviço tem mais pendências?');
+  assert.equal(r.acao,'CONSULTAR_RESUMO');
+  assert.equal(r.filtros.status,'');
+});
+
+test('Fiscal mantém o ranking abrangente e a listagem de pendentes restrita',()=>{
+  const d=data();
+  const rank=interpretAgentQuestion(d,'Qual serviço tem mais pendências?');
+  const list=interpretAgentQuestion(d,'Quais pendências de pintura existem?');
+  assert.equal(rank.acao,'CONSULTAR_RESUMO');
+  assert.equal(rank.filtros.status,'');
+  assert.equal(list.acao,'CONSULTAR_OCORRENCIAS');
+  assert.equal(list.filtros.status,'pendente');
+});
+
+test('Fiscal interpreta o pavimento em grafias ordinais e posições diferentes',()=>{
+  const d=data();
+  d.apartamentos=[{id:'a',pavimento:'5º',apartamento:'501'}];
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências no pavimento 5').filtros.pavimento,'5º');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências no pavimento 5º').filtros.pavimento,'5º');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do 5° pavimento').filtros.pavimento,'5º');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências no 5o andar').filtros.pavimento,'5º');
+});
+test('Fiscal recusa apartamento compartilhando código entre pavimentos',()=>{
+  const d=data();
+  d.apartamentos=[{id:'a',pavimento:'5º',apartamento:'01'},{id:'b',pavimento:'6º',apartamento:'01'}];
+  assert.throws(()=>interpretAgentQuestion(d,'Mostre ocorrências do apartamento 01'),/Apartamento ambíguo/);
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do apartamento 01 no 5º pavimento').filtros.pavimento,'5º');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do apartamento 01 no 5º pavimento').filtros.apartamento,'01');
+});
+test('Fiscal não confunde nomes curtos de ambientes e serviços com partes de palavras',()=>{
+  const d=data();d.servicos=[{nome:'Porta'},{nome:'Porta de madeira'}];d.ambientes=[{nome:'Sala'}];
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências de porta de madeira').filtros.servico,'Porta de madeira');
+  assert.equal(interpretAgentQuestion(d,'Mostre salada de ocorrências').filtros.ambiente,'');
+});
+test('Fiscal respeita status explícito mesmo quando a pergunta contém pendências',()=>{
+  const d=data();
+  assert.equal(interpretAgentQuestion(d,'Quais pendências corrigidas?').filtros.status,'corrigido');
+  assert.equal(interpretAgentQuestion(d,'Quais pendências em correção?').filtros.status,'correcao');
+});
+
+test('Fiscal recusa pedidos fora do escopo e ações de relatório ainda indisponíveis',()=>{
+  const d=data();
+  for(const q of ['Gere relatório do pavimento 13','Exporte o relatório','Baixe o PDF','Compartilhe o relatório'])
+    assert.throws(()=>interpretAgentQuestion(d,q),/não está disponível/);
+  assert.throws(()=>interpretAgentQuestion(d,'Qual é a previsão do tempo?'),/Pergunta não reconhecida|não está disponível/);
+  assert.throws(()=>interpretAgentQuestion(d,'Bom dia, Fiscal!'),/Pergunta não reconhecida/);
+});
+test('Fiscal não ignora filtro explícito de serviço ou ambiente inexistente',()=>{
+  const d=data();d.ambientes=[{nome:'Sala'}];
+  assert.throws(()=>interpretAgentQuestion(d,'Quais ocorrências do serviço de contrapiso?'),/Serviço não cadastrado/);
+  assert.throws(()=>interpretAgentQuestion(d,'Mostre ocorrências do ambiente de garagem'),/Ambiente não cadastrado/);
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do serviço de Pintura').filtros.servico,'Pintura');
+  assert.equal(interpretAgentQuestion(d,'Mostre ocorrências do ambiente da Sala').filtros.ambiente,'Sala');
+});

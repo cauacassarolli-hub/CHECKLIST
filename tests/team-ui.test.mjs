@@ -5,7 +5,7 @@ import {mountApp} from '../src/app.js';
 import {drafts} from '../src/photos.js';
 
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
-async function setup(userId='owner') {
+async function setup(userId='owner',queryOccurrencesOverride=null) {
   const {window,document}=parseHTML('<html><body><div id="app"></div></body></html>');
   globalThis.window=window;globalThis.document=document;
   window.HTMLElement.prototype.scrollIntoView=()=>{};
@@ -24,7 +24,7 @@ async function setup(userId='owner') {
   let offline=false;
   const repo={session:async()=>user,acceptInvites:async()=>0,list:async()=>[data.obra],load:async()=>structuredClone(data),
     get:async(table,id)=>{if(offline)throw new Error('Network unavailable');return structuredClone(data[table].find(r=>r.id===id));},
-    signedPhoto:async()=> 'about:blank',queryOccurrences:async(obraId,filters)=>({filtros:filters,resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0},ocorrencias:[{id:'i',pavimento:'1º',apartamento:'101',titulo:'Falha de pintura',servico:'Pintura',ambiente:'Sala',status:'pendente',descricao:'Verificar pintura',updated_at:'2026-09-23T10:00:00Z'}]})};
+    signedPhoto:async()=> 'about:blank',queryOccurrences:queryOccurrencesOverride||(async(obraId,filters)=>({filtros:filters,resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0,servicos:[{servico:'Pintura',abertas:1,total:1}]},ocorrencias:[{id:'i',pavimento:'1º',apartamento:'101',titulo:'Falha de pintura',servico:'Pintura',ambiente:'Sala',status:'pendente',descricao:'Verificar pintura',updated_at:'2026-09-23T10:00:00Z'}]}))};
   const app=await mountApp(repo,root);
   const click=async selector=>{const el=document.querySelector(selector);assert.ok(el,selector);el.dispatchEvent(new window.Event('click',{bubbles:true}));await tick();};
   return{root,document,window,data,app,click,cache,goOffline:()=>{offline=true;navigator.onLine=false;}};
@@ -84,4 +84,53 @@ test('Fiscal reader consults backend and renders read-only results',async()=>{
     assert.equal(ui.root.querySelector('.fiscal-record[data-action]'),null);
     assert.equal(ui.root.querySelector('[data-action="edit-item"]'),null);
   }finally{ui.app.stop();}
+});
+
+test('Fiscal responde pergunta em português sem expor ações de escrita',async()=>{
+  const ui=await setup('member');
+  try {
+    await ui.click('[data-action="page"][data-page="fiscal"]');
+    const form=ui.root.querySelector('form[data-form="fiscal-question"]');
+    assert.ok(form);
+    form.querySelector('[name="pergunta"]').setAttribute('value','Quantas pendências temos?');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();await tick();
+    assert.match(ui.root.textContent,/Resposta do Fiscal/);
+    assert.match(ui.root.textContent,/1 ocorrência aberta/);
+    assert.doesNotMatch(ui.root.textContent,/Nenhuma ocorrência encontrada/);
+    ui.data.itens[0].observacao='Nova informação do backend';
+    ui.window.dispatchEvent(new ui.window.Event('focus'));await tick();await tick();
+    assert.doesNotMatch(ui.root.textContent,/Resposta do Fiscal/);
+    assert.equal(ui.root.querySelector('.fiscal-record[data-action]'),null);
+    assert.equal(ui.root.querySelector('[data-action="edit-item"]'),null);
+  } finally {ui.app.stop();}
+});
+
+test('Fiscal descarta resposta antiga quando uma nova consulta termina primeiro',async()=>{
+  const pending=[];
+  const repoQuery=(_obraId,filters)=>new Promise(resolve=>pending.push({resolve,filters}));
+  const ui=await setup('member',repoQuery);
+  const summary={total:2,abertas:2,pendentes:1,em_correcao:1,corrigidas:0,conformes:0,servicos:[{servico:'Pintura',total:2,abertas:2}]};
+  try {
+    await ui.click('[data-action="page"][data-page="fiscal"]');
+    let form=ui.root.querySelector('form[data-form="fiscal-question"]');
+    form.querySelector('[name="pergunta"]').setAttribute('value','Mostre ocorrências de pintura');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();
+    assert.equal(pending.length,1);
+    await ui.click('[data-action="page"][data-page="apartamentos"]');
+    await ui.click('[data-action="page"][data-page="fiscal"]');
+    form=ui.root.querySelector('form[data-form="fiscal-question"]');
+    form.querySelector('[name="pergunta"]').setAttribute('value','Quantas pendências temos?');
+    form.dispatchEvent(new ui.window.Event('submit',{bubbles:true,cancelable:true}));
+    await tick();
+    assert.equal(pending.length,2);
+    pending[1].resolve({filtros:pending[1].filters,resumo:summary});
+    await tick();await tick();
+    assert.match(ui.root.textContent,/2 ocorrências abertas/);
+    pending[0].resolve({filtros:pending[0].filters,resumo:summary,ocorrencias:[{id:'outdated'}]});
+    await tick();await tick();
+    assert.match(ui.root.textContent,/2 ocorrências abertas/);
+    assert.doesNotMatch(ui.root.textContent,/A consulta retornou 1 ocorrência/);
+  } finally {ui.app.stop();}
 });
