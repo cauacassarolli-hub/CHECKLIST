@@ -8,7 +8,7 @@ const identity={id:userId,email:'qa@example.invalid',email_confirmed_at:'2026-10
 const eligible=()=>({
   user_id:userId,obra_id:obraId,autorizado_na_obra:true,
   ledger_consultado:true,reserva_existente:false,
-  preferencias:{ativo:true,incluir_resumo:true,horario:'07:00:00',timezone:'America/Sao_Paulo'},
+  preferencias:{user_id:userId,obra_id:obraId,ativo:true,incluir_resumo:true,horario:'07:00:00',timezone:'America/Sao_Paulo'},
   consentimento:{user_id:userId,obra_id:obraId,autorizado:true,autorizado_em:'2026-10-01T15:00:00Z',revogado_em:null}
 });
 function setup({user=identity,state=eligible(),now=new Date('2026-10-14T11:00:00Z'),failAuth=false,failWork=false}={}){
@@ -64,4 +64,26 @@ test('Rejeita argumentos inválidos e não possui ações de escrita',async()=>{
   const service=createEmailDigestDryRun({getAuthUser:async()=>identity,getWorkState:async()=>eligible()});
   await assert.rejects(service({userId:'inválido',obraId}),/Identificadores inválidos/);
   assert.deepEqual(Object.keys(await setup().run()).sort(),['apto_para_preparar','data_local','envio_executado','fuso','horario','motivo','reserva_criada'].sort());
+});
+
+test('Preferências de outra obra ou pessoa nunca autorizam simulação',async()=>{
+  for(const invalid of [
+    {...eligible(),preferencias:{...eligible().preferencias,user_id:'outro'}},
+    {...eligible(),preferencias:{...eligible().preferencias,obra_id:'outra-obra'}},
+    {...eligible(),preferencias:{...eligible().preferencias,user_id:undefined}},
+    {...eligible(),preferencias:{...eligible().preferencias,obra_id:undefined}}
+  ]){
+    const r=await setup({state:invalid}).run();
+    assert.equal(r.apto_para_preparar,false);
+    assert.equal(r.motivo,'dados_incompletos');
+    assert.equal(r.reserva_criada,false);
+  }
+});
+test('Consentimento ausente, inválido ou datado no futuro bloqueia preparação',async()=>{
+  for(const value of [null,'invalido','2099-01-01T00:00:00Z','1970-01-01T00:00:00Z']){
+    const state={...eligible(),consentimento:{...eligible().consentimento,autorizado_em:value}};
+    const r=await setup({state}).run();
+    assert.equal(r.apto_para_preparar,false);
+    assert.equal(r.motivo,'canal_nao_autorizado');
+  }
 });
