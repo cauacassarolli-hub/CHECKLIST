@@ -16,6 +16,7 @@ jobs:
       - run: npm run test:rls
       - run: npm run build
       - run: node scripts/verify-distribution.mjs
+      - run: node --check scripts/smoke-public.mjs
       - name: Upload verified site
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
@@ -36,3 +37,31 @@ jobs:
       - name: Deploy verified PWA to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+  smoke-public:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar site e simulação publicada, sem autenticar nem enviar
+        run: node scripts/smoke-public.mjs
+  smoke-current-production:
+    if: github.event_name == 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar endpoint e site já publicados antes do merge
+        env:
+          SMOKE_TRIES: '2'
+        run: node scripts/smoke-public.mjs
