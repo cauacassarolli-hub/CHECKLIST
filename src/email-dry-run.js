@@ -62,6 +62,16 @@ export function createEmailDigestDryRun({getAuthUser,getWorkState,clock=()=>new 
       typeof state.consentimento?.autorizado!=='boolean')
       return blocked('dados_incompletos',{data_local:day});
 
+    // The RPC must return preferences belonging to this exact user and work.
+    // Even if an upstream query or adapter is changed incorrectly, fail closed.
+    if(state.preferencias &&
+      (state.preferencias.user_id!==userId||state.preferencias.obra_id!==obraId))
+      return blocked('dados_incompletos',{data_local:day});
+    if(state.consentimento?.autorizado===true){
+      const when=new Date(state.consentimento.autorizado_em).getTime();
+      if(!Number.isFinite(when)||when<=0||when>new Date(now).getTime())
+        return blocked('canal_nao_autorizado',{data_local:day});
+    }
     if(!state.ledger_consultado)
       return blocked('ledger_nao_verificado',{data_local:day});
     if(!state.autorizado_na_obra)
