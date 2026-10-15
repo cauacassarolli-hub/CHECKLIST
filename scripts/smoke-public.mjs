@@ -4,7 +4,7 @@ const ORIGIN='https://cauacassarolli-hub.github.io';
 const PAGE=ORIGIN+'/CHECKLIST/';
 const timeout=12000;
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const attempt=async (label,fn,{tries=8,interval=10000}={})=>{
+const attempt=async (label,fn,{tries:Number(process.env.SMOKE_TRIES||8),interval=10000}={})=>{
   let last;
   for(let i=1;i<=tries;i++){
     try{return await fn();}
@@ -40,7 +40,7 @@ const assets=await attempt('Publicação PWA',async()=>{
   for(const path of paths){
     const content=await getText(fresh('./'+path));
     assert.ok(content.length>500,'Asset vazio ou muito pequeno: '+path);
-    if(path.endsWith('.js'))assert.ok(content.includes('Simular resumo (não envia)'),'Interface Fiscal ainda não publicada.');
+    if(path.endsWith('.js'))assert.ok(content.includes('simulate-email') && content.includes('simular-resumo-email'),'Interface Fiscal ou chamada ao backend ainda não publicada.');
   }
   const sw=await getText(fresh('./service-worker.js'));
   for(const path of paths)assert.ok(sw.includes('./'+path),'Service Worker desatualizado: '+path);
