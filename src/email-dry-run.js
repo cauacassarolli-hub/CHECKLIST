@@ -82,7 +82,7 @@ export function createEmailDigestDryRun({getAuthUser,getWorkState,clock=()=>new 
       state.consentimento.obra_id!==obraId||
       !state.consentimento.autorizado||
       !state.consentimento.autorizado_em||
-      state.consentimento.revogado_em)
+      state.consentimento.revogado_em!==null)
       return blocked('canal_nao_autorizado',{data_local:day});
     if(state.reserva_existente)
       return blocked('ja_preparado',{data_local:day});
