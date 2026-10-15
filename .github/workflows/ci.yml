@@ -62,4 +62,6 @@ jobs:
         with:
           node-version: '22'
       - name: Validar endpoint e site já publicados antes do merge
+        env:
+          SMOKE_TRIES: '2'
         run: node scripts/smoke-public.mjs
