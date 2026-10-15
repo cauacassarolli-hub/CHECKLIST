@@ -490,3 +490,68 @@ test('Salvar nova autorização limpa uma simulação desatualizada',async()=>{
     assert.equal(ui.emailConsentWrites(),1);
   }finally{ui.app.stop();}
 });
+
+
+test('Simulação apta permite pré-visualizar conteúdo mas não envia nem reserva',async()=>{
+  const eligible=async()=>({
+    apto_para_preparar:true,motivo:'preparacao_possivel_em_simulacao',
+    horario:'07:00',data_local:'2026-10-15',fuso:'America/Sao_Paulo',
+    envio_executado:false,reserva_criada:false
+  });
+  const ui=await setup('member',null,eligible);
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    assert.equal(ui.root.querySelector('[data-action="email-content-preview"]'),null);
+    await ui.click('[data-action="simulate-email"]');
+    await tick();
+    assert.ok(ui.root.querySelector('[data-action="email-content-preview"]'));
+    assert.equal(ui.root.querySelector('[data-email-content-preview]'),null);
+    await ui.click('[data-action="email-content-preview"]');
+    await tick();
+    const preview=ui.root.querySelector('[data-email-content-preview]');
+    assert.ok(preview);
+    assert.match(preview.textContent,/Fiscal de Qualidade \| Obra compartilhada/);
+    assert.match(preview.textContent,/Pendências abertas: 1/);
+    assert.match(preview.textContent,/Pintura: 1 aberta\(s\)/);
+    assert.match(preview.textContent,/Nenhum destinatário foi definido/);
+    assert.doesNotMatch(preview.textContent,/owner\/w\/a\/i\/a.jpg/);
+    assert.equal(ui.root.querySelector('[data-action="send-email"]'),null);
+    assert.equal(ui.root.querySelector('a[download]'),null);
+    assert.equal(ui.simulationCalls(),1);
+  }finally{ui.app.stop();}
+});
+
+test('Prévia não é permitida com simulação bloqueada',async()=>{
+  const ui=await setup('member');
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="simulate-email"]');
+    await tick();
+    assert.equal(ui.root.querySelector('[data-action="email-content-preview"]'),null);
+    assert.equal(ui.root.querySelector('[data-email-content-preview]'),null);
+  }finally{ui.app.stop();}
+});
+
+test('Uma troca de obra descarta a prévia atrasada do corpo do e-mail',async()=>{
+  let complete;
+  const eligible=async()=>({
+    apto_para_preparar:true,motivo:'preparacao_possivel_em_simulacao',
+    horario:'07:00',data_local:'2026-10-15',fuso:'America/Sao_Paulo',
+    envio_executado:false,reserva_criada:false
+  });
+  const ui=await setup('member',()=>new Promise(resolve=>{complete=resolve;}),eligible);
+  try{
+    await ui.click('[data-action="page"][data-page="ajustes"]');
+    await ui.click('[data-action="simulate-email"]');
+    await tick();
+    await ui.click('[data-action="email-content-preview"]');
+    assert.equal(typeof complete,'function');
+    await ui.click('[data-action="obras"]');
+    complete({filtros:{pavimento:'',apartamento:'',servico:'',ambiente:'',status:''},
+      resumo:{total:1,abertas:1,pendentes:1,em_correcao:0,corrigidas:0,conformes:0,
+        servicos:[{servico:'Pintura',total:1,abertas:1}]}});
+    await tick();await tick();
+    assert.equal(ui.root.querySelector('[data-email-content-preview]'),null);
+    assert.doesNotMatch(ui.root.textContent,/Prévia do futuro e-mail/);
+  }finally{ui.app.stop();}
+});
