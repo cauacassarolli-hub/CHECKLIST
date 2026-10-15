@@ -4,7 +4,7 @@ const ORIGIN='https://cauacassarolli-hub.github.io';
 const PAGE=ORIGIN+'/CHECKLIST/';
 const timeout=12000;
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const attempt=async (label,fn,{tries:Number(process.env.SMOKE_TRIES||8),interval=10000}={})=>{
+const attempt=async (label,fn,{tries=Number(process.env.SMOKE_TRIES||8),interval=10000}={})=>{
   let last;
   for(let i=1;i<=tries;i++){
     try{return await fn();}
