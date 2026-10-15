@@ -50,3 +50,16 @@ jobs:
           node-version: '22'
       - name: Verificar site e simulação publicada, sem autenticar nem enviar
         run: node scripts/smoke-public.mjs
+  smoke-current-production:
+    if: github.event_name == 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar endpoint e site já publicados antes do merge
+        run: node scripts/smoke-public.mjs
