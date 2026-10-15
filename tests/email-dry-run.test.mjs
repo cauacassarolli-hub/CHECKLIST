@@ -87,3 +87,22 @@ test('Consentimento ausente, inválido ou datado no futuro bloqueia preparação
     assert.equal(r.motivo,'canal_nao_autorizado');
   }
 });
+
+test('Consentimento requer estado explícito de não revogação',async()=>{
+  const original=eligible().consentimento;
+  const {revogado_em, ...withoutRevocation}=original;
+  for(const consentimento of [
+    withoutRevocation,
+    {...original,revogado_em:undefined},
+    {...original,revogado_em:''},
+    {...original,revogado_em:false},
+    {...original,revogado_em:0},
+    {...original,revogado_em:'2026-10-01T15:00:00Z'}
+  ]){
+    const r=await setup({state:{...eligible(),consentimento}}).run();
+    assert.equal(r.apto_para_preparar,false);
+    assert.equal(r.motivo,'canal_nao_autorizado');
+    assert.equal(r.envio_executado,false);
+    assert.equal(r.reserva_criada,false);
+  }
+});
