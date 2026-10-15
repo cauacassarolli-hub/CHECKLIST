@@ -106,3 +106,28 @@ test('Consentimento requer estado explícito de não revogação',async()=>{
     assert.equal(r.reserva_criada,false);
   }
 });
+
+test('Primeiro uso distingue ausência legítima de registros malformados sem liberar envio',async()=>{
+  const base=eligible();
+  const scenarios=[
+    [{...base,preferencias:null,consentimento:null},'sem_preferencia'],
+    [{...base,preferencias:undefined,consentimento:null},'dados_incompletos'],
+    [{...base,consentimento:null},'canal_nao_autorizado'],
+    [{...base,consentimento:undefined},'dados_incompletos'],
+    [{...base,consentimento:{autorizado:true}},'canal_nao_autorizado'],
+    [{...base,consentimento:{...base.consentimento,autorizado:undefined}},'dados_incompletos'],
+    [{...base,autorizado_na_obra:false,preferencias:null,consentimento:null},'sem_acesso'],
+    [{...base,ledger_consultado:false,preferencias:null,consentimento:null},'ledger_nao_verificado'],
+    [{...base,preferencias:'malformado'},'dados_incompletos'],
+    [{...base,consentimento:'malformado'},'dados_incompletos'],
+    [{...base,consentimento:[]},'dados_incompletos'],
+    [{...base,preferencias:{...base.preferencias,obra_id:'obra-alheia'},consentimento:null},'dados_incompletos']
+  ];
+  for(const [state,reason] of scenarios){
+    const result=await setup({state}).run();
+    assert.equal(result.apto_para_preparar,false);
+    assert.equal(result.motivo,reason);
+    assert.equal(result.envio_executado,false);
+    assert.equal(result.reserva_criada,false);
+  }
+});
